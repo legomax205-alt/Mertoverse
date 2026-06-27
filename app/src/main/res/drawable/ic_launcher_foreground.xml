@@ -1,0 +1,58 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    
+    <!-- Outer Glow Portal Ring -->
+    <path
+        android:fillColor="#00000000"
+        android:pathData="M54,24 A30,30 0 1,1 53.9,24"
+        android:strokeWidth="4"
+        android:strokeColor="#06b6d4" />
+
+    <!-- VIP Crown on Top -->
+    <path
+        android:fillColor="#facc15"
+        android:pathData="M42,28 L46,35 L54,30 L62,35 L66,28 L64,40 L44,40 Z" />
+    <path
+        android:fillColor="#eab308"
+        android:pathData="M44,40h20v3h-20z" />
+
+    <!-- Cute Game Controller Body -->
+    <path
+        android:fillColor="#ffffff"
+        android:pathData="M32,46 C24,46 22,54 22,64 C22,74 30,82 40,82 C44,82 48,78 54,78 C60,78 64,82 68,82 C78,82 86,74 86,64 C86,54 84,46 76,46 Z" />
+
+    <!-- Controller D-Pad (Left) -->
+    <path
+        android:fillColor="#1e1b4b"
+        android:pathData="M34,58h4v12h-4z" />
+    <path
+        android:fillColor="#1e1b4b"
+        android:pathData="M30,62h12v4h-12z" />
+
+    <!-- Action Buttons (Right) -->
+    <!-- X/Y/A/B colorful dots -->
+    <path
+        android:fillColor="#ef4444"
+        android:pathData="M72,58 A2.5,2.5 0 1,1 71.9,58" />
+    <path
+        android:fillColor="#3b82f6"
+        android:pathData="M78,64 A2.5,2.5 0 1,1 77.9,64" />
+    <path
+        android:fillColor="#10b981"
+        android:pathData="M72,70 A2.5,2.5 0 1,1 71.9,70" />
+    <path
+        android:fillColor="#facc15"
+        android:pathData="M66,64 A2.5,2.5 0 1,1 65.9,64" />
+
+    <!-- Thumb Sticks (Analog Joysticks) -->
+    <path
+        android:fillColor="#cbd5e1"
+        android:pathData="M46,68 A4.5,4.5 0 1,1 45.9,68" />
+    <path
+        android:fillColor="#cbd5e1"
+        android:pathData="M62,68 A4.5,4.5 0 1,1 61.9,68" />
+</vector>

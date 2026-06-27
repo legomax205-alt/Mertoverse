@@ -1,0 +1,3940 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+  <title>PK XD Merto 3D World</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; user-select: none; -webkit-user-select: none; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
+    body, html { width: 100%; height: 100%; overflow: hidden; background: #0c001a; color: #fff; }
+    #canvas-container { width: 100%; height: 100%; position: absolute; top: 0; left: 0; z-index: 1; }
+    
+    /* HUD Overlays */
+    .hud-layer { position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 10; pointer-events: none; display: flex; flex-direction: column; justify-content: space-between; padding: 16px; }
+    .hud-interactive { pointer-events: auto; }
+    
+    /* Stats Panel */
+    .stats-container { display: flex; gap: 12px; }
+    .stat-badge { background: rgba(13, 1, 33, 0.75); border: 2px solid #a855f7; border-radius: 20px; padding: 6px 14px; display: flex; align-items: center; gap: 6px; font-weight: bold; font-size: 14px; backdrop-filter: blur(8px); box-shadow: 0 4px 10px rgba(168, 85, 247, 0.2); }
+    .gold-text { color: #facc15; }
+    .gem-text { color: #06b6d4; }
+    
+    /* Survival HUD */
+    .survival-hud { display: flex; flex-direction: column; gap: 6px; margin-top: 10px; background: rgba(0,0,0,0.5); padding: 8px; border-radius: 12px; border: 1px solid rgba(255,255,255,0.1); width: 150px; }
+    .bar-row { display: flex; align-items: center; gap: 6px; font-size: 12px; }
+    .bar-bg { flex-grow: 1; height: 8px; background: #333; border-radius: 4px; overflow: hidden; }
+    .bar-fill { height: 100%; width: 100%; transition: width 0.3s; }
+    .hp-bar { background: #ef4444; }
+    .hunger-bar { background: #f97316; }
+    .thirst-bar { background: #3b82f6; }
+
+    /* Top Right Controls */
+    .top-right-controls { display: flex; flex-direction: column; align-items: flex-end; gap: 8px; }
+    .mode-btn { background: linear-gradient(135deg, #ec4899, #8b5cf6); border: none; padding: 6px 12px; border-radius: 15px; color: white; font-weight: bold; cursor: pointer; font-size: 11px; text-transform: uppercase; border: 1px solid rgba(255,255,255,0.3); }
+
+    /* Bottom Overlay Button Controllers (NO clutter!) */
+    .bottom-controls { display: flex; justify-content: space-between; align-items: flex-end; width: 100%; }
+    .joystick-zone { width: 120px; height: 120px; background: rgba(255, 255, 255, 0.08); border: 2px dashed rgba(168, 85, 247, 0.4); border-radius: 50%; display: flex; align-items: center; justify-content: center; position: relative; }
+    .joystick-knob { width: 50px; height: 50px; background: radial-gradient(circle, #c084fc, #7e22ce); border-radius: 50%; box-shadow: 0 4px 10px rgba(126, 34, 206, 0.6); position: absolute; transform: translate(0, 0); }
+    
+    .action-group { display: flex; gap: 14px; align-items: center; }
+    .circle-btn { width: 58px; height: 58px; border-radius: 50%; border: none; display: flex; align-items: center; justify-content: center; font-size: 24px; cursor: pointer; color: white; box-shadow: 0 4px 12px rgba(0,0,0,0.4); transition: transform 0.1s; border: 2px solid rgba(255,255,255,0.2); }
+    .circle-btn:active { transform: scale(0.9); }
+    .btn-jump { background: linear-gradient(135deg, #3b82f6, #1d4ed8); }
+    .btn-gesture { background: linear-gradient(135deg, #eab308, #ca8a04); }
+    .btn-phone { width: 66px; height: 66px; background: linear-gradient(135deg, #a855f7, #6b21a8); animation: pulse 2s infinite; border-color: #c084fc; }
+
+    @keyframes pulse {
+      0% { box-shadow: 0 0 0 0 rgba(168, 85, 247, 0.7); }
+      70% { box-shadow: 0 0 0 10px rgba(168, 85, 247, 0); }
+      100% { box-shadow: 0 0 0 0 rgba(168, 85, 247, 0); }
+    }
+
+    /* Modals & Menus (Full Screen Glassmorphic panels) */
+    .overlay-modal { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(8, 2, 18, 0.85); backdrop-filter: blur(15px); z-index: 100; display: flex; align-items: center; justify-content: center; padding: 20px; transition: opacity 0.3s; }
+    .hidden { display: none !important; opacity: 0; pointer-events: none; }
+    
+    /* Auth Box */
+    .auth-box { background: rgba(30, 10, 50, 0.7); border: 2px solid #ec4899; border-radius: 24px; padding: 30px; width: 100%; max-width: 360px; text-align: center; box-shadow: 0 8px 32px rgba(236, 72, 153, 0.3); }
+    .auth-title { font-size: 26px; font-weight: 800; margin-bottom: 20px; color: #f43f5e; text-shadow: 0 2px 10px rgba(244, 63, 94, 0.5); }
+    .auth-input { width: 100%; padding: 12px 16px; border-radius: 12px; border: 1.5px solid rgba(255,255,255,0.2); background: rgba(255,255,255,0.08); color: white; margin-bottom: 14px; outline: none; transition: border-color 0.2s; font-size: 14px; }
+    .auth-input:focus { border-color: #ec4899; }
+    .auth-btn { width: 100%; padding: 12px; border-radius: 12px; border: none; background: linear-gradient(135deg, #ec4899, #f43f5e); color: white; font-weight: bold; font-size: 16px; cursor: pointer; box-shadow: 0 4px 15px rgba(236, 72, 153, 0.4); margin-bottom: 12px; }
+    .auth-links { font-size: 12px; color: #a1a1aa; cursor: pointer; }
+    .auth-links span { color: #f43f5e; text-decoration: underline; margin: 0 4px; }
+
+    /* Wardrobe/Character Setup Screen */
+    .wardrobe-container { display: flex; flex-direction: column; width: 100%; max-width: 480px; background: rgba(18, 5, 36, 0.7); border: 2px solid #a855f7; border-radius: 24px; padding: 20px; max-height: 90vh; overflow-y: auto; }
+    .section-title { font-size: 18px; font-weight: bold; margin-bottom: 12px; color: #c084fc; border-bottom: 1.5px solid rgba(168,85,247,0.3); padding-bottom: 6px; }
+    .palette-grid { display: flex; gap: 8px; margin-bottom: 14px; flex-wrap: wrap; }
+    .color-dot { width: 32px; height: 32px; border-radius: 50%; cursor: pointer; border: 2.5px solid rgba(255,255,255,0.2); transition: transform 0.1s; }
+    .color-dot.active { border-color: #fff; transform: scale(1.15); box-shadow: 0 0 8px rgba(255,255,255,0.8); }
+    
+    .accessory-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-bottom: 18px; }
+    .acc-item { background: rgba(255,255,255,0.06); border: 1.5px solid rgba(255,255,255,0.1); border-radius: 12px; padding: 10px 4px; text-align: center; cursor: pointer; transition: 0.2s; display: flex; flex-direction: column; align-items: center; gap: 6px; }
+    .acc-item:hover, .acc-item.active { border-color: #a855f7; background: rgba(168, 85, 247, 0.15); }
+    .acc-item span { font-size: 10px; color: #e9d5ff; }
+    .acc-icon { font-size: 20px; }
+
+    /* MertoPhone UI Frame */
+    .phone-wrapper { position: absolute; bottom: -100%; left: 50%; transform: translateX(-50%); width: 330px; height: 580px; background: #0c0216; border: 10px solid #222; border-radius: 40px; z-index: 200; box-shadow: 0 20px 50px rgba(0,0,0,0.8), 0 0 25px rgba(168, 85, 247, 0.4); transition: bottom 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275); display: flex; flex-direction: column; overflow: hidden; pointer-events: auto; }
+    .phone-wrapper.open { bottom: 30px; }
+    .phone-notch { width: 140px; height: 18px; background: #222; position: absolute; top: 0; left: 50%; transform: translateX(-50%); border-bottom-left-radius: 12px; border-bottom-right-radius: 12px; z-index: 210; }
+    .phone-screen { flex-grow: 1; padding: 24px 16px 16px 16px; background: linear-gradient(180deg, #18032e, #090014); display: flex; flex-direction: column; position: relative; }
+    .phone-header { display: flex; justify-content: space-between; font-size: 11px; color: #a855f7; margin-bottom: 15px; font-weight: bold; }
+    
+    /* App Icons Screen */
+    .apps-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; margin-top: 10px; }
+    .app-icon-item { display: flex; flex-direction: column; align-items: center; gap: 6px; cursor: pointer; }
+    .app-icon-box { width: 56px; height: 56px; border-radius: 16px; display: flex; align-items: center; justify-content: center; font-size: 28px; box-shadow: 0 4px 12px rgba(0,0,0,0.3); transition: transform 0.1s; position: relative; }
+    .app-icon-box:active { transform: scale(0.9); }
+    .app-icon-item span { font-size: 11px; color: #e2e8f0; font-weight: 500; text-align: center; }
+    
+    /* Specific App Views */
+    .app-view { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: #0c0216; padding: 24px 16px 16px 16px; display: flex; flex-direction: column; z-index: 205; transform: translateX(100%); transition: transform 0.3s ease; }
+    .app-view.active-app { transform: translateX(0); }
+    .app-title-bar { display: flex; align-items: center; gap: 8px; margin-bottom: 12px; border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 8px; }
+    .app-back-btn { background: none; border: none; color: #a855f7; font-size: 18px; cursor: pointer; padding-right: 4px; font-weight: bold; }
+    .app-title { font-size: 16px; font-weight: bold; color: white; display: flex; align-items: center; gap: 6px; }
+
+    /* MertoGram Content */
+    .mertogram-scroll { flex-grow: 1; overflow-y: auto; display: flex; flex-direction: column; gap: 14px; padding-bottom: 10px; }
+    .mertogram-post { background: rgba(255,255,255,0.05); border-radius: 12px; border: 1px solid rgba(255,255,255,0.1); overflow: hidden; }
+    .post-header { display: flex; align-items: center; gap: 8px; padding: 8px; }
+    .avatar-mock { width: 26px; height: 26px; border-radius: 50%; background: #a855f7; display: flex; align-items: center; justify-content: center; font-size: 10px; font-weight: bold; }
+    .post-user { font-size: 12px; font-weight: bold; }
+    .post-image { width: 100%; height: 140px; background: #1e0b36; object-fit: cover; display: block; }
+    .post-video { width: 100%; height: 140px; background: black; display: block; object-fit: cover; }
+    .post-actions { padding: 8px; display: flex; gap: 14px; font-size: 12px; }
+    .post-btn { display: flex; align-items: center; gap: 4px; cursor: pointer; color: #94a3b8; }
+    .post-btn.liked { color: #f43f5e; font-weight: bold; }
+    .post-caption { padding: 0 8px 8px 8px; font-size: 11px; color: #cbd5e1; }
+    .comments-section { border-top: 1px solid rgba(255,255,255,0.05); padding: 6px 8px; font-size: 10px; display: flex; flex-direction: column; gap: 4px; }
+    .comment-row { color: #94a3b8; }
+    .comment-user { color: #e2e8f0; font-weight: bold; margin-right: 4px; }
+
+    .mertogram-header-actions { display: flex; gap: 6px; margin-bottom: 10px; }
+    .m-action-btn { flex: 1; background: linear-gradient(135deg, #ec4899, #8b5cf6); border: none; padding: 10px 6px; border-radius: 10px; font-size: 11px; font-weight: bold; color: white; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 4px; }
+    
+    .follower-banner { background: linear-gradient(135deg, rgba(168, 85, 247, 0.2), rgba(236, 72, 153, 0.2)); border: 1.5px solid #d946ef; border-radius: 12px; padding: 10px; text-align: center; margin-bottom: 10px; }
+    .follower-title { font-size: 11px; text-transform: uppercase; color: #f472b6; font-weight: bold; }
+    .follower-count { font-size: 20px; font-weight: 800; color: white; margin: 2px 0; }
+    .follower-target { font-size: 10px; color: #cbd5e1; }
+
+    /* Shop App List */
+    .shop-list { display: flex; flex-direction: column; gap: 10px; overflow-y: auto; flex-grow: 1; }
+    .shop-item { background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); border-radius: 14px; padding: 10px; display: flex; justify-content: space-between; align-items: center; }
+    .shop-item-info { display: flex; flex-direction: column; gap: 4px; }
+    .shop-item-name { font-weight: bold; font-size: 13px; }
+    .shop-item-cost { display: flex; align-items: center; gap: 4px; font-size: 12px; font-weight: bold; }
+    .shop-buy-btn { background: #10b981; border: none; padding: 6px 12px; border-radius: 8px; color: white; font-weight: bold; font-size: 11px; cursor: pointer; }
+    .shop-buy-btn:disabled { background: #475569; cursor: not-allowed; }
+
+    /* Players App List */
+    .players-list-scroll { flex-grow: 1; overflow-y: auto; display: flex; flex-direction: column; gap: 8px; margin-bottom: 10px; }
+    .player-row { background: rgba(255,255,255,0.05); border-radius: 10px; padding: 10px; display: flex; justify-content: space-between; align-items: center; border: 1px solid rgba(255,255,255,0.08); }
+    .player-name-tag { font-size: 13px; font-weight: bold; display: flex; align-items: center; gap: 6px; }
+    .p-teleport-btn { background: #3b82f6; border: none; padding: 6px 10px; border-radius: 6px; color: white; font-weight: bold; font-size: 10px; cursor: pointer; }
+    .add-player-form { display: flex; gap: 6px; }
+    .add-p-input { flex-grow: 1; background: rgba(255,255,255,0.08); border: 1px solid rgba(168,85,247,0.3); border-radius: 8px; color: white; padding: 8px; outline: none; font-size: 12px; }
+    .add-p-btn { background: #a855f7; border: none; padding: 0 14px; border-radius: 8px; color: white; font-weight: bold; font-size: 12px; cursor: pointer; }
+
+    /* Gestures Panel (Radial-like menu floating) */
+    .gesture-modal-content { display: grid; grid-template-columns: repeat(2, 1fr); gap: 14px; width: 100%; max-width: 280px; background: rgba(18, 5, 36, 0.85); border: 2px solid #eab308; border-radius: 24px; padding: 20px; text-align: center; }
+    .gesture-btn { background: rgba(255,255,255,0.06); border: 1.5px solid rgba(255,255,255,0.1); border-radius: 16px; padding: 14px 6px; cursor: pointer; display: flex; flex-direction: column; align-items: center; gap: 8px; transition: 0.2s; }
+    .gesture-btn:active { background: rgba(234, 179, 8, 0.2); border-color: #eab308; transform: scale(0.95); }
+    .gesture-btn span { font-size: 12px; font-weight: bold; color: #fef08a; }
+
+    /* Custom Dialog for posting */
+    .post-dialog { background: rgba(20,5,35,0.95); border: 2px solid #ec4899; border-radius: 20px; padding: 20px; width: 100%; max-width: 300px; display: flex; flex-direction: column; gap: 12px; box-shadow: 0 10px 25px rgba(0,0,0,0.5); }
+    .post-dialog-title { font-weight: bold; font-size: 16px; text-align: center; color: #ec4899; }
+    
+    /* Native Toast Overlay simulated beautifully */
+    .toast-overlay { position: absolute; bottom: 100px; left: 50%; transform: translateX(-50%); background: rgba(0, 0, 0, 0.85); border: 1px solid #c084fc; border-radius: 20px; padding: 8px 16px; font-size: 12px; color: white; font-weight: 500; pointer-events: none; z-index: 999; animation: fadeInUp 0.3s forwards, fadeOut 0.3s ease 2.5s forwards; }
+    @keyframes fadeInUp { from { opacity: 0; transform: translate(-50%, 20px); } to { opacity: 1; transform: translate(-50%, 0); } }
+    @keyframes fadeOut { to { opacity: 0; transform: translate(-50%, -10px); } }
+
+    .decorator-control-btn {
+      width: 34px; height: 34px; border-radius: 8px; border: none; background: #3b82f6; color: white; font-weight: bold; font-size: 14px; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; transition: 0.1s; box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+    }
+    .decorator-control-btn:active { transform: scale(0.9); }
+    
+    .voice-mic-btn.active {
+      background: #22c55e !important;
+      box-shadow: 0 0 15px #22c55e !important;
+      animation: micPulse 1.2s infinite ease-in-out;
+    }
+    @keyframes micPulse {
+      0% { transform: scale(1); }
+      50% { transform: scale(1.12); }
+      100% { transform: scale(1); }
+    }
+    
+    .chat-msg-line { font-size: 11px; margin-bottom: 3px; word-break: break-all; text-shadow: 0 1px 1px black; line-height: 1.3; text-align: left; }
+    .chat-msg-sender { font-weight: bold; color: #c084fc; }
+    .chat-msg-self { font-weight: bold; color: #60a5fa; }
+    .chat-msg-system { font-weight: bold; color: #facc15; font-style: italic; }
+    
+    /* Floating 3D/Screen speech bubble projection */
+    .speech-bubble {
+      position: absolute;
+      background: rgba(255, 255, 255, 0.95);
+      border: 2px solid #a855f7;
+      color: #0f172a;
+      font-weight: bold;
+      font-size: 11px;
+      padding: 6px 12px;
+      border-radius: 16px;
+      white-space: nowrap;
+      pointer-events: none;
+      z-index: 1000;
+      transform: translate(-50%, -100%);
+      box-shadow: 0 4px 12px rgba(0,0,0,0.4);
+      font-family: sans-serif;
+      transition: opacity 0.15s ease-out;
+    }
+    .speech-bubble::after {
+      content: '';
+      position: absolute;
+      bottom: -8px;
+      left: 50%;
+      transform: translateX(-50%);
+      border-width: 8px 8px 0;
+      border-style: solid;
+      border-color: rgba(255,255,255,0.95) transparent;
+      display: block;
+      width: 0;
+    }
+    
+    .furniture-box {
+      flex-shrink: 0;
+      width: 80px;
+      background: rgba(255,255,255,0.08);
+      border: 1.5px solid rgba(255,255,255,0.15);
+      border-radius: 12px;
+      padding: 6px;
+      text-align: center;
+      cursor: pointer;
+      color: white;
+      transition: 0.15s;
+    }
+    .furniture-box:active {
+      transform: scale(0.92);
+      border-color: #facc15;
+      background: rgba(250, 204, 21, 0.1);
+    }
+    
+    /* Design App Selector slots */
+    .design-slot-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-bottom: 12px; }
+    .design-slot-item { background: rgba(255,255,255,0.06); border: 1.5px solid rgba(255,255,255,0.1); border-radius: 10px; padding: 6px; font-size: 11px; font-weight: bold; text-align: center; cursor: pointer; color: #cbd5e1; transition: 0.1s; }
+    .design-slot-item.selected { border-color: #a855f7; background: rgba(168, 85, 247, 0.15); color: white; }
+    
+    .design-color-dot { width: 24px; height: 24px; border-radius: 50%; border: 2px solid rgba(255,255,255,0.2); cursor: pointer; display: inline-block; transition: 0.1s; }
+    .design-color-dot.selected { border-color: white; transform: scale(1.15); box-shadow: 0 0 8px rgba(255,255,255,0.5); }
+    .design-decal-item { background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.1); border-radius: 8px; padding: 6px; font-size: 14px; text-align: center; cursor: pointer; transition: 0.1s; }
+    .design-decal-item.selected { border-color: #facc15; background: rgba(250, 204, 21, 0.15); }
+  </style>
+  <!-- Three.js Library -->
+  <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/build/three.min.js"></script>
+</head>
+<body>
+
+  <div id="canvas-container"></div>
+
+  <!-- HUD Layer -->
+  <div class="hud-layer">
+    <!-- Top HUD: Stats and Modes -->
+    <div style="display: flex; justify-content: space-between; width: 100%;">
+      <div class="hud-interactive">
+        <div class="stats-container">
+          <div class="stat-badge"><span style="font-size:16px;">🪙</span><span id="gold-val" class="gold-text">20</span></div>
+          <div class="stat-badge"><span style="font-size:16px;">💎</span><span id="gem-val" class="gem-text">5</span></div>
+        </div>
+        <div class="survival-hud hidden" id="survival-overlay">
+          <div class="bar-row">
+            <span>❤️</span>
+            <div class="bar-bg"><div id="hp-fill" class="bar-fill hp-bar"></div></div>
+          </div>
+          <div class="bar-row">
+            <span>🍏</span>
+            <div class="bar-bg"><div id="hunger-fill" class="bar-fill hunger-bar"></div></div>
+          </div>
+          <div class="bar-row">
+            <span>💧</span>
+            <div class="bar-bg"><div id="thirst-fill" class="bar-fill thirst-bar"></div></div>
+          </div>
+        </div>
+      </div>
+      <div class="top-right-controls hud-interactive">
+        <button class="mode-btn" id="mode-toggle">Barışçıl 🌸</button>
+      </div>
+    </div>
+
+    <!-- Bottom HUD: Joystick, Gestures, Phone Trigger (strictly no cluttered buttons) -->
+    <div class="bottom-controls hud-interactive">
+      <!-- Minimal touch Joystick -->
+      <div class="joystick-zone" id="joystick-container">
+        <div class="joystick-knob" id="joystick-handle"></div>
+      </div>
+
+      <!-- Keyboard guide overlay for PC mode (symmetrical circle to joystick) -->
+      <div id="pc-key-guide" style="width: 110px; height: 110px; background: rgba(15, 23, 42, 0.65); backdrop-filter: blur(8px); border-radius: 50%; border: 2.5px solid rgba(168, 85, 247, 0.45); padding: 8px; display: none; flex-direction: column; justify-content: center; align-items: center; gap: 4px; pointer-events: none; text-align: center; box-shadow: 0 4px 15px rgba(0,0,0,0.4);">
+        <span style="font-size: 8px; color: #c084fc; font-weight: 900; letter-spacing: 0.5px;">KLAVYE MODU</span>
+        <div style="font-size: 11px; font-weight: bold; display: flex; flex-direction: column; gap: 2px; align-items: center;">
+          <span style="background: rgba(255,255,255,0.2); padding: 1px 6px; border-radius: 4px; font-family: monospace; font-size: 9px; line-height: 1;">W / ▲</span>
+          <div style="display: flex; gap: 2px; justify-content: center;">
+            <span style="background: rgba(255,255,255,0.2); padding: 1px 5px; border-radius: 4px; font-family: monospace; font-size: 9px; line-height: 1;">A</span>
+            <span style="background: rgba(255,255,255,0.2); padding: 1px 5px; border-radius: 4px; font-family: monospace; font-size: 9px; line-height: 1;">S</span>
+            <span style="background: rgba(255,255,255,0.2); padding: 1px 5px; border-radius: 4px; font-family: monospace; font-size: 9px; line-height: 1;">D</span>
+          </div>
+        </div>
+        <span style="font-size: 7.5px; color: #94a3b8; font-weight: bold;">Space: Zıpla</span>
+      </div>
+
+      <!-- Compact Action Circle group -->
+      <div class="action-group">
+        <button class="circle-btn btn-gesture" id="trigger-gestures" title="Jestler">🎭</button>
+        <button class="circle-btn btn-phone" id="trigger-phone" title="MertoPhone">📱</button>
+        <button class="circle-btn btn-jump" id="trigger-jump">🚀</button>
+      </div>
+    </div>
+
+    <!-- BUILDING ENTRANCE INTERACTION PROMPT -->
+    <div id="building-entrance-prompt" class="hidden" style="position: absolute; bottom: 150px; left: 50%; transform: translateX(-50%); z-index: 99; text-align: center; pointer-events: auto;">
+      <button id="btn-enter-building" onclick="triggerBuildingEntry()" style="background: linear-gradient(135deg, #3b82f6, #2563eb); color: white; border: 2.5px solid #93c5fd; padding: 12px 28px; border-radius: 30px; font-weight: bold; font-size: 14px; cursor: pointer; box-shadow: 0 4px 15px rgba(59, 130, 246, 0.55); display: flex; align-items: center; gap: 8px;">
+        <span id="entry-prompt-icon">🚪</span> <span id="entry-prompt-text">İçeri Gir</span>
+      </button>
+    </div>
+
+    <!-- HOUSE DECORATOR DOCK -->
+    <div id="decorator-hud" class="hidden" style="position: absolute; bottom: 12px; left: 50%; transform: translateX(-50%); width: 95%; max-width: 480px; background: rgba(15, 23, 42, 0.95); backdrop-filter: blur(10px); border: 2.5px solid #eab308; border-radius: 20px; padding: 14px; z-index: 150; box-shadow: 0 10px 30px rgba(0,0,0,0.65); display: flex; flex-direction: column; gap: 10px; pointer-events: auto;">
+      <div style="display: flex; justify-content: space-between; align-items: center;">
+        <span style="font-weight: bold; color: #fcd34d; font-size: 14px; display: flex; align-items: center; gap: 6px;">🛋️ Ev Tasarım Modu <span style="font-size:10px; color:#94a3b8; font-weight:normal;">(Dokun ve Yerleştir)</span></span>
+        <button onclick="exitDecoratingMode()" style="background: linear-gradient(135deg, #ef4444, #b91c1c); color: white; border: none; padding: 5px 12px; border-radius: 8px; font-size: 11px; font-weight: bold; cursor: pointer; box-shadow: 0 2px 6px rgba(239, 68, 68, 0.35);">Düzenlemeyi Bitir 💾</button>
+      </div>
+      
+      <!-- Scrolling furniture catalogue -->
+      <div style="display: flex; gap: 10px; overflow-x: auto; padding-bottom: 6px; scrollbar-width: thin;" id="furniture-catalogue">
+        <!-- Populated dynamically via JS -->
+      </div>
+      
+      <!-- Edit controls for selected furniture -->
+      <div id="furniture-edit-controls" class="hidden" style="background: rgba(255,255,255,0.06); border-radius: 12px; padding: 8px; display: flex; justify-content: space-between; align-items: center; gap: 10px; border: 1px dashed rgba(255,255,255,0.15);">
+        <span style="font-size: 12px; color: #cbd5e1; font-weight: bold;" id="selected-furniture-name">Seçili: Yok</span>
+        <div style="display: flex; gap: 5px;">
+          <button class="decorator-control-btn" onclick="moveSelectedFurniture('left')" title="Sola">◀</button>
+          <button class="decorator-control-btn" onclick="moveSelectedFurniture('forward')" title="İleri">▲</button>
+          <button class="decorator-control-btn" onclick="moveSelectedFurniture('backward')" title="Geri">▼</button>
+          <button class="decorator-control-btn" onclick="moveSelectedFurniture('right')" title="Sağa">▶</button>
+          <button class="decorator-control-btn" onclick="rotateSelectedFurniture()" style="background: linear-gradient(135deg, #a855f7, #7e22ce);" title="Döndür">🔄</button>
+          <button class="decorator-control-btn" onclick="deleteSelectedFurniture()" style="background: linear-gradient(135deg, #f43f5e, #e11d48);" title="Kaldır">🗑️</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- IMMERSIVE CHAT ZONE (Sohbet ve Telsiz) -->
+    <div id="chat-zone" style="position: absolute; left: 15px; bottom: 150px; width: 285px; z-index: 110; display: flex; flex-direction: column; gap: 6px; pointer-events: auto;">
+      <!-- Chat scroll log -->
+      <div id="chat-messages-log" style="height: 125px; overflow-y: auto; background: rgba(15, 23, 42, 0.45); backdrop-filter: blur(12px); border-radius: 14px; border: 1.5px solid rgba(255,255,255,0.12); padding: 8px; display: flex; flex-direction: column; gap: 4px; pointer-events: auto;">
+        <div class="chat-msg-line"><span class="chat-msg-system">📢 [Merto World]: 3D Dünyaya hoş geldin! Sohbet kutusunu kullanarak konuşabilir, 🎙️ butonuna basarak sesli sohbete katılabilirsin!</span></div>
+      </div>
+      
+      <!-- Chat Input & Mic Row -->
+      <div style="display: flex; gap: 6px; align-items: center; pointer-events: auto;">
+        <input type="text" id="chat-input-field" placeholder="Mesajını yaz ve Gönder..." style="flex-grow: 1; background: rgba(15, 23, 42, 0.7); border: 2px solid rgba(168, 85, 247, 0.45); border-radius: 12px; color: white; padding: 8px 12px; outline: none; font-size: 11.5px; box-shadow: 0 4px 10px rgba(0,0,0,0.3);" onkeydown="if(event.key === 'Enter') sendChatMessage()">
+        <button class="chat-send-btn" onclick="sendChatMessage()" style="background: linear-gradient(135deg, #a855f7, #8b5cf6); border: none; width: 34px; height: 34px; border-radius: 12px; color: white; cursor: pointer; display: flex; align-items: center; justify-content: center; font-size: 14px; box-shadow: 0 3px 6px rgba(168, 85, 247, 0.3);">💬</button>
+        <button id="btn-voice-mic" class="voice-mic-btn" onclick="toggleVoiceChat()" style="background: linear-gradient(135deg, #ef4444, #dc2626); border: none; width: 34px; height: 34px; border-radius: 12px; color: white; cursor: pointer; display: flex; align-items: center; justify-content: center; font-size: 14px; box-shadow: 0 4px 10px rgba(239, 68, 68, 0.35);">🎙️</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Simulated Toast Container -->
+  <div id="toast-container" style="position: absolute; width:100%; height:100%; pointer-events:none; z-index:9999; top:0; left:0;"></div>
+
+  <!-- MODAL: AUTHENTICATION (Login / Register / Forgot Password) -->
+  <div class="overlay-modal" id="modal-auth">
+    <div class="auth-box" id="box-login">
+      <div class="auth-title">Merto World 3D</div>
+      <p style="font-size: 13px; color: #c084fc; margin-bottom: 18px;">Giriş Yap ve Eğlenceye Katıl!</p>
+      <input type="text" class="auth-input" placeholder="Kullanıcı Adı" id="login-username" value="MertoPlayer">
+      <input type="password" class="auth-input" placeholder="Şifre" id="login-password" value="123456">
+
+      <!-- Control Mode Selection (PC / Mobile) -->
+      <div style="margin-top: 14px; margin-bottom: 14px; text-align: left;">
+        <div style="font-size: 11px; font-weight: 800; color: #a855f7; margin-bottom: 8px; text-transform: uppercase; letter-spacing: 0.5px; display: flex; align-items: center; gap: 4px;"><span>🎮</span> Kontrol Modu Seç:</div>
+        <div style="display: flex; gap: 10px; justify-content: center;">
+          <div id="control-mode-mobile" onclick="setControlMode('mobile')" style="flex: 1; padding: 8px; background: rgba(168, 85, 247, 0.25); border: 2.5px solid #a855f7; border-radius: 12px; cursor: pointer; text-align: center; transition: all 0.3s ease; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px;">
+            <span style="font-size: 20px;">📱</span>
+            <span style="font-size: 11px; font-weight: bold; color: white;">Mobil (Joystick)</span>
+          </div>
+          <div id="control-mode-pc" onclick="setControlMode('pc')" style="flex: 1; padding: 8px; background: rgba(15, 23, 42, 0.6); border: 2.5px solid rgba(255,255,255,0.1); border-radius: 12px; cursor: pointer; text-align: center; transition: all 0.3s ease; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px;">
+            <span style="font-size: 20px;">💻</span>
+            <span style="font-size: 11px; font-weight: bold; color: #94a3b8;">PC (Klavye)</span>
+          </div>
+        </div>
+      </div>
+
+      <button class="auth-btn" id="btn-do-login">Oyna</button>
+      <div class="auth-links">
+        <span onclick="switchAuth('register')">Kayıt Ol</span> • <span onclick="switchAuth('forgot')">Şifremi Unuttum</span>
+      </div>
+    </div>
+
+    <div class="auth-box hidden" id="box-register">
+      <div class="auth-title">Yeni Kayıt</div>
+      <p style="font-size: 13px; color: #ec4899; margin-bottom: 18px;">Hemen hesabını oluştur!</p>
+      <input type="text" class="auth-input" placeholder="Kullanıcı Adı" id="reg-username">
+      <input type="email" class="auth-input" placeholder="E-posta Adresi" id="reg-email">
+      <input type="password" class="auth-input" placeholder="Şifre" id="reg-password">
+      <button class="auth-btn" id="btn-do-register">Kayıt Ol</button>
+      <div class="auth-links">
+        Zaten üye misin? <span onclick="switchAuth('login')">Giriş Yap</span>
+      </div>
+    </div>
+
+    <div class="auth-box hidden" id="box-forgot">
+      <div class="auth-title">Şifre Kurtarma</div>
+      <p style="font-size: 13px; color: #a855f7; margin-bottom: 18px;">E-posta adresini girerek şifreni sıfırla.</p>
+      <input type="email" class="auth-input" placeholder="E-posta Adresi" id="forgot-email">
+      <button class="auth-btn" id="btn-do-forgot">Sıfırlama Linki Gönder</button>
+      <div class="auth-links">
+        Hatırladın mı? <span onclick="switchAuth('login')">Giriş Yap</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL: CHARACTER CUSTOMIZATION (Wardrobe System) -->
+  <div class="overlay-modal hidden" id="modal-wardrobe">
+    <div class="wardrobe-container">
+      <div class="auth-title" style="margin-bottom:10px;">Gardırop Odası 👑</div>
+      <p style="font-size: 12px; text-align: center; color: #cbd5e1; margin-bottom: 16px;">Karakterini istediğin gibi özelleştir!</p>
+      
+      <div class="section-title">Ten Rengi (Skin Color)</div>
+      <div class="palette-grid" id="skin-palette"></div>
+
+      <div class="section-title">Tişört Rengi (T-Shirt)</div>
+      <div class="palette-grid" id="tshirt-palette"></div>
+
+      <div class="section-title">Pantolon Rengi (Pants)</div>
+      <div class="palette-grid" id="pants-palette"></div>
+
+      <div class="section-title">Aksesuarlar (Accessories)</div>
+      <div class="accessory-grid">
+        <div class="acc-item" data-acc="hat">
+          <div class="acc-icon">🎩</div>
+          <span>Şapka</span>
+        </div>
+        <div class="acc-item" data-acc="hair">
+          <div class="acc-icon">💇</div>
+          <span>Anime Saçı</span>
+        </div>
+        <div class="acc-item" data-acc="headphones">
+          <div class="acc-icon">🎧</div>
+          <span>Kulaklık</span>
+        </div>
+        <div class="acc-item" data-acc="halo">
+          <div class="acc-icon">😇</div>
+          <span>Hale</span>
+        </div>
+        <div class="acc-item" data-acc="wings">
+          <div class="acc-icon">🪽</div>
+          <span>Kanat</span>
+        </div>
+        <div class="acc-item" data-acc="cape">
+          <div class="acc-icon">🧣</div>
+          <span>Pelerin</span>
+        </div>
+        <div class="acc-item" data-acc="sword">
+          <div class="acc-icon">⚔️</div>
+          <span>Işık Kılıcı</span>
+        </div>
+      </div>
+
+      <button class="auth-btn" id="btn-save-character" style="background: linear-gradient(135deg, #10b981, #059669); box-shadow: 0 4px 15px rgba(16, 185, 129, 0.4);">Kaydet ve Başla 🎮</button>
+    </div>
+  </div>
+
+  <!-- GESTURE SELECTOR DIALOG -->
+  <div class="overlay-modal hidden" id="modal-gestures">
+    <div class="gesture-modal-content">
+      <div style="grid-column: span 2; font-weight: bold; margin-bottom: 4px; color: #fef08a;">Jest & Mimikler</div>
+      <div class="gesture-btn" onclick="triggerAnim('dance')">
+        <div style="font-size:24px;">🕺</div>
+        <span>Dans</span>
+      </div>
+      <div class="gesture-btn" onclick="triggerAnim('wave')">
+        <div style="font-size:24px;">👋</div>
+        <span>El Salla</span>
+      </div>
+      <div class="gesture-btn" onclick="triggerAnim('flip')">
+        <div style="font-size:24px;">🤸</div>
+        <span>Takla At</span>
+      </div>
+      <div class="gesture-btn" onclick="triggerAnim('robot')">
+        <div style="font-size:24px;">🤖</div>
+        <span>Robot Dansı</span>
+      </div>
+      <button class="auth-btn" onclick="closeGestures()" style="grid-column: span 2; margin-top:10px; background:#475569; box-shadow:none; padding:8px;">Kapat</button>
+    </div>
+  </div>
+
+  <!-- NEW MODAL: PHYSICAL SHOP NPC DIALOG -->
+  <div class="overlay-modal hidden" id="modal-npc-shop">
+    <div class="wardrobe-container" style="max-width: 360px; border-color: #10b981;">
+      <div class="auth-title" id="npc-shop-title" style="margin-bottom:10px; color: #10b981;">Dükkan 🛍️</div>
+      <p style="font-size: 12px; text-align: center; color: #cbd5e1; margin-bottom: 16px;" id="npc-shop-subtitle">Dükkandaki özel ürünlere göz at!</p>
+      
+      <div class="shop-list" id="npc-shop-items" style="max-height: 50vh; overflow-y: auto;">
+        <!-- Filled dynamically based on which NPC was clicked -->
+      </div>
+
+      <button class="auth-btn" onclick="closeNpcShop()" style="margin-top:14px; background:#475569; box-shadow:none; padding:10px;">Dükkandan Çık</button>
+    </div>
+  </div>
+
+  <!-- HUD INTERACTION PROMPT FOR NPCS -->
+  <div id="npc-interaction-prompt" class="hidden" style="position: absolute; bottom: 150px; left: 50%; transform: translateX(-50%); z-index: 50; pointer-events: auto; text-align: center;">
+    <button id="btn-interact-npc" style="background: linear-gradient(135deg, #10b981, #059669); color: white; border: 2px solid #34d399; padding: 12px 24px; border-radius: 30px; font-weight: bold; font-size: 14px; cursor: pointer; box-shadow: 0 4px 15px rgba(16, 185, 129, 0.4); display: flex; align-items: center; gap: 8px;">
+      <span id="npc-prompt-icon">🛍️</span> <span id="npc-prompt-text">Konuş</span>
+    </button>
+  </div>
+
+  <!-- PHOTO CAPTION DIALOG -->
+  <div class="overlay-modal hidden" id="modal-post-caption">
+    <div class="post-dialog">
+      <div class="post-dialog-title">📸 MertoGram'da Paylaş</div>
+      <div style="width:100%; height:120px; background:#222; border-radius:10px; overflow:hidden;" id="caption-preview-box"></div>
+      <input type="text" class="auth-input" placeholder="Açıklama yaz..." id="post-caption-input" style="margin: 0;">
+      <div style="display: flex; gap:8px;">
+        <button class="auth-btn" onclick="cancelPost()" style="background:#475569; margin:0; flex:1;">İptal</button>
+        <button class="auth-btn" onclick="confirmPublish()" style="margin:0; flex:1;">Paylaş</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- SMARTPHONE FRAME: METOPHONE -->
+  <div class="phone-wrapper" id="merto-phone">
+    <div class="phone-notch"></div>
+    <div class="phone-screen">
+      <!-- Phone Header -->
+      <div class="phone-header">
+        <span>📶 MertoCell</span>
+        <span>12:00</span>
+        <span>🔋 100%</span>
+      </div>
+
+      <!-- MAIN APP ICONS GRID -->
+      <div id="phone-home" style="display:flex; flex-direction:column; justify-content:space-between; height:100%;">
+        <div>
+          <div style="text-align: center; margin-bottom: 20px;">
+            <div style="font-size: 16px; font-weight: 800; color:#c084fc; text-shadow:0 0 10px rgba(168,85,247,0.5);">MertoPhone</div>
+            <div style="font-size: 10px; color:#cbd5e1;">Odana arkadaş davet et!</div>
+          </div>
+          <div class="apps-grid">
+            <!-- App 1: MertoGram -->
+            <div class="app-icon-item" onclick="openApp('mertogram')">
+              <div class="app-icon-box" style="background: linear-gradient(135deg, #f43f5e, #d946ef);">📸</div>
+              <span>MertoGram</span>
+            </div>
+            <!-- App 2: Davet Linki -->
+            <div class="app-icon-item" onclick="openApp('invite')">
+              <div class="app-icon-box" style="background: linear-gradient(135deg, #3b82f6, #06b6d4);">🔗</div>
+              <span>Davet Linki</span>
+            </div>
+            <!-- App 3: Şehir Marketi -->
+            <div class="app-icon-item" onclick="openApp('shop')">
+              <div class="app-icon-box" style="background: linear-gradient(135deg, #10b981, #facc15);">🛍️</div>
+              <span>Market</span>
+            </div>
+            <!-- App 4: Odadaki Oyuncular -->
+            <div class="app-icon-item" onclick="openApp('players')">
+              <div class="app-icon-box" style="background: linear-gradient(135deg, #8b5cf6, #ec4899);">👥</div>
+              <span>Arkadaşlar</span>
+            </div>
+            <!-- App 5: Tasarım Atölyesi -->
+            <div class="app-icon-item" onclick="openApp('design')">
+              <div class="app-icon-box" style="background: linear-gradient(135deg, #a855f7, #cbd5e1);">🎨</div>
+              <span>Atölye</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Phone home pill at bottom -->
+        <div onclick="closePhone()" style="width: 100px; height: 5px; background: #cbd5e1; border-radius: 3px; margin: 10px auto 0 auto; cursor:pointer;"></div>
+      </div>
+
+      <!-- APP VIEW: DESIGN (TASARIM ATÖLYESİ) -->
+      <div class="app-view" id="app-design" style="padding: 10px; display: none; flex-direction: column; height: 100%; overflow-y: auto;">
+        <div class="app-title-bar">
+          <button class="app-back-btn" onclick="backToHome()">◀</button>
+          <div class="app-title">🎨 Atölye</div>
+        </div>
+        
+        <p style="font-size: 10px; color: #cbd5e1; margin-bottom: 10px; text-align: center; line-height: 1.3;">Özel kıyafetini tasarla! 5,000+ kombinasyondan birini üret ve gardırobuna ekle!</p>
+        
+        <div style="font-size: 11px; font-weight: bold; margin-bottom: 6px; color: #a855f7; text-align: left;">Kategori Seç:</div>
+        <div class="design-slot-grid">
+          <div class="design-slot-item selected" id="design-cat-tshirt" onclick="setDesignCategory('tshirt', this)">👕 Tişört</div>
+          <div class="design-slot-item" id="design-cat-pants" onclick="setDesignCategory('pants', this)">👖 Pantolon</div>
+          <div class="design-slot-item" id="design-cat-shoes" onclick="setDesignCategory('shoes', this)">👟 Ayakkabı</div>
+        </div>
+
+        <div style="font-size: 11px; font-weight: bold; margin-bottom: 6px; color: #a855f7; text-align: left;">Desen Seç:</div>
+        <div class="design-slot-grid" id="design-patterns-list">
+          <div class="design-slot-item selected" onclick="setDesignPattern('solid', this)">Düz</div>
+          <div class="design-slot-item" onclick="setDesignPattern('striped', this)">Çizgili</div>
+          <div class="design-slot-item" onclick="setDesignPattern('camo', this)">Kamuflaj</div>
+          <div class="design-slot-item" onclick="setDesignPattern('checkers', this)">Damalı</div>
+          <div class="design-slot-item" onclick="setDesignPattern('stars', this)">Yıldızlar</div>
+          <div class="design-slot-item" onclick="setDesignPattern('waves', this)">Dalgalı</div>
+        </div>
+
+        <div style="font-size: 11px; font-weight: bold; margin-bottom: 6px; color: #a855f7; text-align: left;">Birinci Renk:</div>
+        <div style="display: flex; gap: 8px; overflow-x: auto; padding-bottom: 6px; margin-bottom: 8px;" id="design-colors-list">
+          <!-- Populated by JS -->
+        </div>
+
+        <div style="font-size: 11px; font-weight: bold; margin-bottom: 6px; color: #a855f7; text-align: left;">Amblem Seç:</div>
+        <div style="display: grid; grid-template-columns: repeat(5, 1fr); gap: 6px; margin-bottom: 12px;" id="design-decals-list">
+          <div class="design-decal-item selected" onclick="setDesignDecal('', this)">❌</div>
+          <div class="design-decal-item" onclick="setDesignDecal('⭐', this)">⭐</div>
+          <div class="design-decal-item" onclick="setDesignDecal('🐱', this)">🐱</div>
+          <div class="design-decal-item" onclick="setDesignDecal('❤️', this)">❤️</div>
+          <div class="design-decal-item" onclick="setDesignDecal('🔥', this)">🔥</div>
+          <div class="design-decal-item" onclick="setDesignDecal('⚡', this)">⚡</div>
+          <div class="design-decal-item" onclick="setDesignDecal('💀', this)">💀</div>
+          <div class="design-decal-item" onclick="setDesignDecal('🍎', this)">🍎</div>
+          <div class="design-decal-item" onclick="setDesignDecal('👑', this)">👑</div>
+          <div class="design-decal-item" onclick="setDesignDecal('👽', this)">👽</div>
+        </div>
+
+        <button class="auth-btn" onclick="craftProceduralItem()" style="background: linear-gradient(135deg, #a855f7, #cbd5e1); margin-top: auto; font-size: 12px; font-weight: bold; padding: 10px;">Tasarımı Üret (15 🪙)</button>
+      </div>
+
+      <!-- APP VIEW: METOGRAM -->
+      <div class="app-view" id="app-mertogram">
+        <div class="app-title-bar">
+          <button class="app-back-btn" onclick="backToHome()">◀</button>
+          <div class="app-title">📸 MertoGram</div>
+        </div>
+        
+        <div class="follower-banner">
+          <div class="follower-title">Takipçi Sayısı</div>
+          <div class="follower-count" id="followers-count-txt">240</div>
+          <div class="follower-target" id="followers-target-txt">MertoC Rozeti için hedef: 1500</div>
+        </div>
+
+        <div class="mertogram-header-actions">
+          <button class="m-action-btn" onclick="takeMertoPhoto()">📸 Fotoğraf Çek</button>
+          <!-- Simulated file picker for shorts -->
+          <button class="m-action-btn" onclick="triggerVideoUpload()">🎞️ Shorts Yükle</button>
+        </div>
+
+        <!-- Hidden actual input for standard device upload simulation -->
+        <input type="file" id="actual-video-input" accept="video/*,image/*" style="display:none;" onchange="handleFileSelected(event)">
+
+        <div class="mertogram-scroll" id="mertogram-feed">
+          <!-- Feed items populated dynamically -->
+        </div>
+      </div>
+
+      <!-- APP VIEW: DAVET LINKI -->
+      <div class="app-view" id="app-invite">
+        <div class="app-title-bar">
+          <button class="app-back-btn" onclick="backToHome()">◀</button>
+          <div class="app-title">🔗 Davet Linki</div>
+        </div>
+        <div style="display:flex; flex-direction:column; gap:16px; align-items:center; justify-content:center; flex-grow:1; text-align:center;">
+          <div style="font-size:40px;">🌍</div>
+          <div style="font-size:14px; font-weight:bold;">Gerçek Arkadaşlarını Davet Et!</div>
+          <p style="font-size:11px; color:#94a3b8; padding:0 10px;">Lobi botları olmadan, bu odayı arkadaşlarına göndererek tamamen gerçek kişilerle multiplayer deneyimi yaşayabilirsin.</p>
+          <div style="background:rgba(255,255,255,0.06); padding:10px; border-radius:10px; border:1px solid rgba(255,255,255,0.1); width:100%; word-break:break-all; font-family:monospace; font-size:11px; color:#a855f7;" id="invite-url-text"></div>
+          <button class="auth-btn" onclick="copyInviteLink()" style="background: linear-gradient(135deg, #3b82f6, #06b6d4);">Oda Linkini Kopyala 📋</button>
+        </div>
+      </div>
+
+      <!-- APP VIEW: MARKET -->
+      <div class="app-view" id="app-shop">
+        <div class="app-title-bar">
+          <button class="app-back-btn" onclick="backToHome()">◀</button>
+          <div class="app-title">🛍️ Şehir Marketi</div>
+        </div>
+        <div class="shop-list">
+          <div class="shop-item">
+            <div class="shop-item-info">
+              <div class="shop-item-name">⚡ Kalıcı Hız İksiri</div>
+              <p style="font-size:10px; color:#94a3b8;">Karakterin kalıcı olarak %50 hızlanır.</p>
+              <div class="shop-item-cost"><span>🪙</span>100</div>
+            </div>
+            <button class="shop-buy-btn" onclick="buyShopItem('speed', 100, 'coin')">Satın Al</button>
+          </div>
+          <div class="shop-item">
+            <div class="shop-item-info">
+              <div class="shop-item-name">🛹 Altın Kaykay (Hoverboard)</div>
+              <p style="font-size:10px; color:#94a3b8;">Altın renginde hoverboard ile süzül!</p>
+              <div class="shop-item-cost"><span>🪙</span>250</div>
+            </div>
+            <button class="shop-buy-btn" id="buy-hoverboard-btn" onclick="buyShopItem('hoverboard', 250, 'coin')">Satın Al</button>
+          </div>
+          <div class="shop-item">
+            <div class="shop-item-info">
+              <div class="shop-item-name">👑 VIP Kral Tacı</div>
+              <p style="font-size:10px; color:#94a3b8;">Sadece gerçek krallara layık parlayan taç.</p>
+              <div class="shop-item-cost"><span>💎</span>50</div>
+            </div>
+            <button class="shop-buy-btn" id="buy-crown-btn" onclick="buyShopItem('crown', 50, 'gem')">Satın Al</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- APP VIEW: OYUNCULAR (FRIENDS SPAWNER) -->
+      <div class="app-view" id="app-players">
+        <div class="app-title-bar">
+          <button class="app-back-btn" onclick="backToHome()">◀</button>
+          <div class="app-title">👥 Oda Oyuncuları</div>
+        </div>
+        <div class="players-list-scroll" id="players-spawn-list">
+          <!-- Dynamic spawns -->
+        </div>
+        <div class="add-player-form">
+          <input type="text" class="add-p-input" placeholder="Arkadaşının adı (örn: Ayaz, Enes)" id="player-spawn-name">
+          <button class="add-p-btn" onclick="spawnFriendPlayer()">Ekle</button>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <script>
+    // Global State
+    const state = {
+      gold: 200, // Boost starting gold to 200 so they can try out decorating their house immediately!
+      gems: 15,  // Give 15 starting gems to try custom designs & statues!
+      followers: 240,
+      hasMertoC: false,
+      isSurvival: false,
+      hp: 100,
+      hunger: 100,
+      thirst: 100,
+      speedUpgrade: false,
+      hoverboardUpgrade: false,
+      crownUpgrade: false,
+      controlMode: 'mobile',
+      ownedItems: [],
+      insideBuilding: null,
+      houseDecorations: {
+        "Bubblegum Villa": [],
+        "Sunny Cottage": [],
+        "Ocean Bungalow": []
+      },
+      customPermutations: [],
+      character: {
+        skinColor: '#ffcc99',
+        tshirtColor: '#ec4899',
+        pantsColor: '#3b82f6',
+        customTshirt: null,
+        customPants: null,
+        customShoesColor: null,
+        accessories: { hat: false, hair: false, headphones: false, halo: false, wings: false, cape: false, sword: false }
+      },
+      friends: [],
+      mertoGramFeed: [
+        { id: 1, user: 'AyazGamer', type: 'text', mediaUrl: '', text: 'Olm parkur çok zormuş yukarı portalı denediniz mi? 🔥', likes: 21, liked: false, comments: [{ user: 'Enes', text: 'Ben bitirdim bile kaykay lazım kanka' }] },
+        { id: 2, user: 'Efe_PKXD', type: 'video_preset', mediaUrl: 'parkour', text: 'Trambolinle göklere fırladım, inanılmaz akıcı lobi donmuyor hiç!', likes: 58, liked: false, comments: [] }
+      ]
+    };
+
+    // Load locally saved progress
+    try {
+      const saved = localStorage.getItem('pkxd_merto_save');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        Object.assign(state, parsed);
+        state.ownedItems = state.ownedItems || [];
+        state.houseDecorations = state.houseDecorations || { "Bubblegum Villa": [], "Sunny Cottage": [], "Ocean Bungalow": [] };
+        state.customPermutations = state.customPermutations || [];
+        state.controlMode = state.controlMode || 'mobile';
+        document.getElementById('gold-val').innerText = state.gold;
+        document.getElementById('gem-val').innerText = state.gems;
+        document.getElementById('followers-count-txt').innerText = state.followers;
+      }
+    } catch(e) { console.error("Save load failed", e); }
+
+    function saveState() {
+      try {
+        localStorage.setItem('pkxd_merto_save', JSON.stringify({
+          gold: state.gold, gems: state.gems, followers: state.followers, hasMertoC: state.hasMertoC,
+          speedUpgrade: state.speedUpgrade, hoverboardUpgrade: state.hoverboardUpgrade, crownUpgrade: state.crownUpgrade,
+          controlMode: state.controlMode,
+          character: state.character, friends: state.friends, ownedItems: state.ownedItems,
+          houseDecorations: state.houseDecorations, customPermutations: state.customPermutations
+        }));
+      } catch(e) {}
+    }
+
+    // Set control mode visual states & elements toggle
+    function setControlMode(mode) {
+      state.controlMode = mode;
+      saveState();
+
+      const mobileBtn = document.getElementById('control-mode-mobile');
+      const pcBtn = document.getElementById('control-mode-pc');
+      const joystick = document.getElementById('joystick-container');
+      const pcGuide = document.getElementById('pc-key-guide');
+
+      if (mode === 'mobile') {
+        if (mobileBtn) {
+          mobileBtn.style.background = 'rgba(168, 85, 247, 0.25)';
+          mobileBtn.style.borderColor = '#a855f7';
+          const spanLast = mobileBtn.querySelector('span:last-child');
+          if (spanLast) spanLast.style.color = 'white';
+        }
+        if (pcBtn) {
+          pcBtn.style.background = 'rgba(15, 23, 42, 0.6)';
+          pcBtn.style.borderColor = 'rgba(255, 255, 255, 0.1)';
+          const spanLast = pcBtn.querySelector('span:last-child');
+          if (spanLast) spanLast.style.color = '#94a3b8';
+        }
+        if (joystick) joystick.style.display = 'block';
+        if (pcGuide) pcGuide.style.display = 'none';
+      } else {
+        if (pcBtn) {
+          pcBtn.style.background = 'rgba(168, 85, 247, 0.25)';
+          pcBtn.style.borderColor = '#a855f7';
+          const spanLast = pcBtn.querySelector('span:last-child');
+          if (spanLast) spanLast.style.color = 'white';
+        }
+        if (mobileBtn) {
+          mobileBtn.style.background = 'rgba(15, 23, 42, 0.6)';
+          mobileBtn.style.borderColor = 'rgba(255, 255, 255, 0.1)';
+          const spanLast = mobileBtn.querySelector('span:last-child');
+          if (spanLast) spanLast.style.color = '#94a3b8';
+        }
+        if (joystick) joystick.style.display = 'none';
+        if (pcGuide) pcGuide.style.display = 'flex';
+      }
+    }
+
+    // Initialize loaded control mode on start
+    setTimeout(() => {
+      setControlMode(state.controlMode || 'mobile');
+    }, 100);
+
+    // Dynamic Invitation URL Link
+    const mockRoomId = Math.random().toString(36).substring(2, 8);
+    const mockInviteUrl = "https://merto-game.io/room/" + mockRoomId;
+    document.getElementById('invite-url-text').innerText = mockInviteUrl;
+
+    // Toast system
+    function showToast(message) {
+      const container = document.getElementById('toast-container');
+      const toast = document.createElement('div');
+      toast.className = 'toast-overlay';
+      toast.innerText = message;
+      container.appendChild(toast);
+      setTimeout(() => toast.remove(), 2800);
+
+      // Attempt to invoke Android native interface if exists (premium feature)
+      if (window.AndroidBridge && window.AndroidBridge.showToast) {
+        window.AndroidBridge.showToast(message);
+      }
+    }
+
+    // Android Haptic feedback trigger (premium)
+    function triggerVibration() {
+      if (window.AndroidBridge && window.AndroidBridge.vibrate) {
+        window.AndroidBridge.vibrate(50);
+      }
+    }
+
+    // AUTH SPLASH SWITCHING
+    function switchAuth(target) {
+      document.getElementById('box-login').classList.add('hidden');
+      document.getElementById('box-register').classList.add('hidden');
+      document.getElementById('box-forgot').classList.add('hidden');
+      if (target === 'login') document.getElementById('box-login').classList.remove('hidden');
+      if (target === 'register') document.getElementById('box-register').classList.remove('hidden');
+      if (target === 'forgot') document.getElementById('box-forgot').classList.remove('hidden');
+    }
+
+    document.getElementById('btn-do-login').onclick = () => {
+      document.getElementById('modal-auth').classList.add('hidden');
+      document.getElementById('modal-wardrobe').classList.remove('hidden');
+      showToast("Giriş Başarılı! Gardırobunu Hazırla.");
+    };
+    document.getElementById('btn-do-register').onclick = () => {
+      switchAuth('login');
+      showToast("Kayıt oluşturuldu! Giriş yapabilirsin.");
+    };
+    document.getElementById('btn-do-forgot').onclick = () => {
+      switchAuth('login');
+      showToast("Şifre sıfırlama e-postası gönderildi!");
+    };
+
+    // WARDROBE SYSTEM PANEL RENDER & ACC INTERACTIONS
+    const paletteSkin = ['#ffcc99', '#f3a675', '#a76a44', '#fcd34d', '#c084fc', '#4ade80'];
+    const paletteClothes = ['#ec4899', '#3b82f6', '#10b981', '#facc15', '#ef4444', '#8b5cf6', '#ffffff', '#1e293b'];
+
+    function createPaletteDots(containerId, colors, selectedKey) {
+      const container = document.getElementById(containerId);
+      container.innerHTML = '';
+      colors.forEach(col => {
+        const dot = document.createElement('div');
+        dot.className = 'color-dot' + (state.character[selectedKey] === col ? ' active' : '');
+        dot.style.backgroundColor = col;
+        dot.onclick = () => {
+          state.character[selectedKey] = col;
+          Array.from(container.children).forEach(d => d.classList.remove('active'));
+          dot.classList.add('active');
+          update3DCharacterOutfit();
+        };
+        container.appendChild(dot);
+      });
+    }
+
+    createPaletteDots('skin-palette', paletteSkin, 'skinColor');
+    createPaletteDots('tshirt-palette', paletteClothes, 'tshirtColor');
+    createPaletteDots('pants-palette', paletteClothes, 'pantsColor');
+
+    // Accessories interactions
+    document.querySelectorAll('.acc-item').forEach(item => {
+      const accName = item.getAttribute('data-acc');
+      if (state.character.accessories[accName]) {
+        item.classList.add('active');
+      }
+      item.onclick = () => {
+        const isNowActive = !state.character.accessories[accName];
+        state.character.accessories[accName] = isNowActive;
+        if (isNowActive) {
+          item.classList.add('active');
+          showToast(`${item.querySelector('span').innerText} Donatıldı!`);
+        } else {
+          item.classList.remove('active');
+        }
+        update3DCharacterOutfit();
+      };
+    });
+
+    // Wardrobe save
+    document.getElementById('btn-save-character').onclick = () => {
+      document.getElementById('modal-wardrobe').classList.add('hidden');
+      saveState();
+      showToast("Oyun Başladı! Keyifli Parkurlar!");
+      // Activate main rendering loop if paused
+      clock.getDelta(); // Reset clock
+    };
+
+    // JESTLER/EMOJIS SYSTEM
+    document.getElementById('trigger-gestures').onclick = () => {
+      document.getElementById('modal-gestures').classList.remove('hidden');
+    };
+    function closeGestures() {
+      document.getElementById('modal-gestures').classList.add('hidden');
+    }
+    function triggerAnim(type) {
+      closeGestures();
+      playCharacterGesture(type);
+    }
+
+    // PHONE VIEW MANAGER (MertoPhone)
+    const phone = document.getElementById('merto-phone');
+    document.getElementById('trigger-phone').onclick = () => {
+      phone.classList.add('open');
+    };
+    function closePhone() {
+      phone.classList.remove('open');
+      backToHome();
+    }
+    function openApp(appId) {
+      document.getElementById('phone-home').classList.add('hidden');
+      document.getElementById('app-' + appId).classList.add('active-app');
+      if (appId === 'mertogram') renderMertoGramFeed();
+      if (appId === 'players') renderFriendPlayersList();
+    }
+    function backToHome() {
+      document.querySelectorAll('.app-view').forEach(app => app.classList.remove('active-app'));
+      document.getElementById('phone-home').classList.remove('hidden');
+    }
+
+    // COPY LINK APP
+    function copyInviteLink() {
+      navigator.clipboard.writeText(mockInviteUrl).then(() => {
+        showToast("Oda Linki Panoya Kopyalandı!");
+        triggerVibration();
+      }).catch(() => {
+        showToast("Hata oluştu, tekrar dene.");
+      });
+    }
+
+    // CITY SHOP APP
+    function buyShopItem(itemType, cost, currency) {
+      if (currency === 'coin' && state.gold < cost) return showToast("Yetersiz Altın!");
+      if (currency === 'gem' && state.gems < cost) return showToast("Yetersiz Elmas!");
+
+      if (currency === 'coin') state.gold -= cost;
+      if (currency === 'gem') state.gems -= cost;
+
+      document.getElementById('gold-val').innerText = state.gold;
+      document.getElementById('gem-val').innerText = state.gems;
+
+      if (itemType === 'speed') {
+        state.speedUpgrade = true;
+        showToast("⚡ Kalıcı Hız Aktifleşti!");
+      } else if (itemType === 'hoverboard') {
+        state.hoverboardUpgrade = true;
+        document.getElementById('buy-hoverboard-btn').disabled = true;
+        document.getElementById('buy-hoverboard-btn').innerText = "Alındı";
+        showToast("🛹 Altın Kaykay Donatıldı!");
+        toggleHoverboard3D(true);
+      } else if (itemType === 'crown') {
+        state.crownUpgrade = true;
+        document.getElementById('buy-crown-btn').disabled = true;
+        document.getElementById('buy-crown-btn').innerText = "Alındı";
+        showToast("👑 Kral Tacı Başında Parlıyor!");
+        toggleCrown3D(true);
+      }
+      saveState();
+      triggerVibration();
+    }
+
+    // ODADAKI OYUNCULAR APP (Spawning real models)
+    function renderFriendPlayersList() {
+      const container = document.getElementById('players-spawn-list');
+      container.innerHTML = '';
+      if (state.friends.length === 0) {
+        container.innerHTML = `<div style="text-align:center; font-size:11px; color:#cbd5e1; padding:20px 0;">Henüz lobiye arkadaş eklemedin. Alttan gerçek arkadaşlarını yazarak ekle!</div>`;
+        return;
+      }
+      state.friends.forEach((friend, idx) => {
+        const row = document.createElement('div');
+        row.className = 'player-row';
+        row.innerHTML = `
+          <div class="player-name-tag">🟢 ${friend}</div>
+          <button class="p-teleport-btn" onclick="teleportToFriend(${idx})">🚀 Git</button>
+        `;
+        container.appendChild(row);
+      });
+    }
+
+    function spawnFriendPlayer() {
+      const nameInput = document.getElementById('player-spawn-name');
+      const name = nameInput.value.trim();
+      if (!name) return;
+      if (state.friends.includes(name)) return showToast("Bu arkadaş zaten odada!");
+      state.friends.push(name);
+      nameInput.value = '';
+      spawnFriendPlayer3D(name);
+      renderFriendPlayersList();
+      saveState();
+      showToast(`${name} odaya katıldı!`);
+    }
+
+    // METOGRAM APP & FEED & CAPTURE SCREENSHOT
+    let capturedImageBase64 = '';
+    function takeMertoPhoto() {
+      // Set short timer to let phone UI slide out briefly if desired, or grab instantly
+      try {
+        renderer.render(scene, camera);
+        capturedImageBase64 = renderer.domElement.toDataURL("image/png");
+        document.getElementById('caption-preview-box').innerHTML = `<img src="${capturedImageBase64}" style="width:100%; height:100%; object-fit:cover;">`;
+        document.getElementById('post-caption-input').value = '';
+        document.getElementById('modal-post-caption').classList.remove('hidden');
+      } catch(e) {
+        showToast("Ekran yakalanamadı.");
+      }
+    }
+
+    function cancelPost() {
+      document.getElementById('modal-post-caption').classList.add('hidden');
+    }
+
+    function confirmPublish() {
+      const captionText = document.getElementById('post-caption-input').value || 'Merto World Maceraları!';
+      document.getElementById('modal-post-caption').classList.add('hidden');
+      
+      const newPost = {
+        id: Date.now(),
+        user: 'MertoPlayer_VIP',
+        type: 'image',
+        mediaUrl: capturedImageBase64,
+        text: captionText,
+        likes: 0,
+        liked: false,
+        comments: []
+      };
+
+      state.mertoGramFeed.unshift(newPost);
+      // Award followers!
+      const gainedFollowers = Math.floor(Math.random() * 80) + 120;
+      state.followers += gainedFollowers;
+      document.getElementById('followers-count-txt').innerText = state.followers;
+      showToast(`📸 Paylaşıldı! +${gainedFollowers} Yeni Takipçi!`);
+      triggerVibration();
+
+      // Check milestones
+      checkFollowerMilestone();
+      renderMertoGramFeed();
+      saveState();
+    }
+
+    // Simulated short file selector
+    function triggerVideoUpload() {
+      // Since it's inside Android webview, this triggers normal onShowFileChooser,
+      // but we also simulate fallback instantly if device is offline or doesn't support it
+      document.getElementById('actual-video-input').click();
+    }
+
+    function handleFileSelected(event) {
+      const file = event.target.files[0];
+      if (file) {
+        const reader = new FileReader();
+        reader.onload = function(e) {
+          const simulatedShorts = ['parkour', 'zombie', 'bounce'];
+          const randomShort = simulatedShorts[Math.floor(Math.random() * simulatedShorts.length)];
+          
+          const newPost = {
+            id: Date.now(),
+            user: 'MertoPlayer_VIP',
+            type: 'video_preset',
+            mediaUrl: randomShort,
+            text: file.name + ' - Efsane Hareketler! 🛹',
+            likes: 12,
+            liked: false,
+            comments: []
+          };
+          state.mertoGramFeed.unshift(newPost);
+          const gained = Math.floor(Math.random() * 150) + 200;
+          state.followers += gained;
+          document.getElementById('followers-count-txt').innerText = state.followers;
+          showToast(`🎞️ Video Shorts Yüklendi! +${gained} Takipçi!`);
+          triggerVibration();
+          checkFollowerMilestone();
+          renderMertoGramFeed();
+          saveState();
+        };
+        reader.readAsDataURL(file);
+      }
+    }
+
+    function checkFollowerMilestone() {
+      if (state.followers >= 1500 && !state.hasMertoC) {
+        state.hasMertoC = true;
+        document.getElementById('followers-target-txt').innerHTML = "⭐ <span style='color:#facc15;'>MertoC Rozeti Kazanıldı!</span> Maaş Ödemesi Aktif.";
+        showToast("🏆 Tebrikler! 1500 Takipçiye Ulaştın ve MertoC Rozetini Açtın!");
+        // Give bonus elmas
+        state.gems += 20;
+        document.getElementById('gem-val').innerText = state.gems;
+      }
+    }
+
+    // Salary payouts every 1 minute if MertoC is active
+    setInterval(() => {
+      if (state.hasMertoC) {
+        state.gold += 50;
+        state.gems += 10;
+        document.getElementById('gold-val').innerText = state.gold;
+        document.getElementById('gem-val').innerText = state.gems;
+        showToast("💰 MertoC Maaş Ödemesi Alındı: +50 Altın, +10 Elmas!");
+        saveState();
+      }
+    }, 60000);
+
+    function renderMertoGramFeed() {
+      const feed = document.getElementById('mertogram-feed');
+      feed.innerHTML = '';
+      state.mertoGramFeed.forEach(post => {
+        const item = document.createElement('div');
+        item.className = 'mertogram-post';
+        
+        let mediaHtml = '';
+        if (post.type === 'image') {
+          mediaHtml = `<img src="${post.mediaUrl}" class="post-image">`;
+        } else if (post.type === 'video_preset') {
+          // Play colorful CSS gradients acting as video visuals or procedurally generated
+          let colorGrad = 'linear-gradient(45deg, #a855f7, #ec4899)';
+          let desc = "Shorts Oynatılıyor...";
+          if (post.mediaUrl === 'parkour') { colorGrad = 'linear-gradient(135deg, #06b6d4, #3b82f6)'; desc = "🛹 Efsane Parkur Shorts"; }
+          if (post.mediaUrl === 'zombie') { colorGrad = 'linear-gradient(135deg, #10b981, #0c0216)'; desc = "💀 Gece Hayatta Kalma Shorts"; }
+          if (post.mediaUrl === 'bounce') { colorGrad = 'linear-gradient(135deg, #facc15, #f97316)'; desc = "🚀 Trambolin Rekoru Shorts"; }
+          mediaHtml = `
+            <div style="background:${colorGrad}; width:100%; height:140px; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:8px;">
+              <span style="font-size:32px; animation: pulse 1s infinite;">▶</span>
+              <span style="font-size:11px; font-weight:bold;">${desc}</span>
+            </div>
+          `;
+        } else {
+          mediaHtml = `<div style="height:4px;"></div>`;
+        }
+
+        let commentsHtml = '';
+        post.comments.forEach(c => {
+          commentsHtml += `<div class="comment-row"><span class="comment-user">${c.user}:</span>${c.text}</div>`;
+        });
+
+        item.innerHTML = `
+          <div class="post-header">
+            <div class="avatar-mock">${post.user[0]}</div>
+            <div class="post-user">${post.user}</div>
+          </div>
+          ${mediaHtml}
+          <div class="post-actions">
+            <span class="post-btn ${post.liked ? 'liked' : ''}" onclick="likePost(${post.id})">❤️ ${post.likes}</span>
+            <span class="post-btn" onclick="addMockComment(${post.id})">💬 Yorum Yap</span>
+          </div>
+          <div class="post-caption">${post.text}</div>
+          <div class="comments-section" id="comments-${post.id}">
+            ${commentsHtml}
+          </div>
+        `;
+        feed.appendChild(item);
+      });
+    }
+
+    function likePost(postId) {
+      const post = state.mertoGramFeed.find(p => p.id === postId);
+      if (post) {
+        post.liked = !post.liked;
+        post.likes += post.liked ? 1 : -1;
+        renderMertoGramFeed();
+        triggerVibration();
+      }
+    }
+
+    const funnyComments = [
+      "Hile mi yapıyorsun abi?", "Mükemmel parkur helal be!", "Bizimle de oyna kanka!", "Hoverboard nerede satılıyor?", "Zombi çok korkunçtu 😂"
+    ];
+    function addMockComment(postId) {
+      const post = state.mertoGramFeed.find(p => p.id === postId);
+      if (post) {
+        const randComment = funnyComments[Math.floor(Math.random() * funnyComments.length)];
+        post.comments.push({ user: 'MertoFan_' + Math.floor(Math.random()*900+100), text: randComment });
+        renderMertoGramFeed();
+        showToast("Simüle yorum eklendi!");
+      }
+    }
+
+    // GAME MODES & HEALTH SYSTEM
+    const modeBtn = document.getElementById('mode-toggle');
+    const survivalOverlay = document.getElementById('survival-overlay');
+    modeBtn.onclick = () => {
+      state.isSurvival = !state.isSurvival;
+      if (state.isSurvival) {
+        modeBtn.innerText = "Hayatta Kalma 💀";
+        modeBtn.style.background = "linear-gradient(135deg, #ef4444, #7f1d1d)";
+        survivalOverlay.classList.remove('hidden');
+        state.hp = 100;
+        state.hunger = 100;
+        state.thirst = 100;
+        updateSurvivalHUD();
+        toggleZombies3D(true);
+        showToast("Hayatta Kalma Modu! Açlığa ve Zombilere Dikkat Et!");
+      } else {
+        modeBtn.innerText = "Barışçıl 🌸";
+        modeBtn.style.background = "linear-gradient(135deg, #ec4899, #8b5cf6)";
+        survivalOverlay.classList.add('hidden');
+        toggleZombies3D(false);
+        showToast("Barışçıl Mod Aktif. Rahatça Keşfet!");
+      }
+    };
+
+    function updateSurvivalHUD() {
+      document.getElementById('hp-fill').style.width = state.hp + '%';
+      document.getElementById('hunger-fill').style.width = state.hunger + '%';
+      document.getElementById('thirst-fill').style.width = state.thirst + '%';
+    }
+
+    // Handle game ticks for Hunger & Thirst
+    setInterval(() => {
+      if (state.isSurvival) {
+        state.hunger = Math.max(0, state.hunger - 1.5);
+        state.thirst = Math.max(0, state.thirst - 2.5);
+        if (state.hunger <= 0 || state.thirst <= 0) {
+          state.hp = Math.max(0, state.hp - 3);
+          if (state.hp <= 0) {
+            playerDieAndRespawn();
+          }
+        }
+        updateSurvivalHUD();
+      }
+    }, 2000);
+
+    function playerDieAndRespawn() {
+      showToast("💀 Öldün ve Lobiye Işınlandın!");
+      triggerVibration();
+      state.hp = 100;
+      state.hunger = 100;
+      state.thirst = 100;
+      updateSurvivalHUD();
+      // Reset 3D character coordinates to 0, 5, 0
+      playerGroup.position.set(0, 5, 0);
+      velocity.set(0,0,0);
+    }
+
+    // Eating Apple restoration
+    function eatApple() {
+      if (state.isSurvival) {
+        state.hunger = Math.min(100, state.hunger + 25);
+        state.hp = Math.min(100, state.hp + 10);
+        updateSurvivalHUD();
+        showToast("🍎 Elma yendi! Tokluk ve Can arttı.");
+      } else {
+        // Peaceful mode gives gold coin
+        state.gold += 5;
+        document.getElementById('gold-val').innerText = state.gold;
+        showToast("🍎 Elma toplandı! +5 Altın!");
+      }
+      saveState();
+      triggerVibration();
+    }
+
+
+    // -------------------------------------------------------------
+    // THREE.JS 3D ENGINE IMPLEMENTATION (Highly Optimized & Fluid)
+    // -------------------------------------------------------------
+    let scene, camera, renderer, clock, outdoorGroup, indoorGroup;
+    let playerGroup, characterCore;
+    let ground, sea;
+    let keys = { forward: 0, backward: 0, left: 0, right: 0 };
+    let joystickInput = { x: 0, y: 0 };
+    let isJoystickDragging = false;
+    let velocity = new THREE.Vector3();
+    let isGrounded = false;
+    let gravity = -35;
+    let jumpForce = 14;
+    let playerSpeed = 10;
+    let skyIslands = [];
+    let goldCoins = [];
+    let bouncyPads = [];
+    let shakingTrees = [];
+    let activeApples = [];
+    let merchantsList = [];
+    let zombiesList = [];
+    let friends3D = [];
+
+    // Joint groups for bone animations
+    let armLeft, armRight, legLeft, legRight, accessoryNode, headNode;
+    let hoverboardMesh = null;
+    let crownMesh = null;
+
+    init3D();
+
+    function init3D() {
+      const container = document.getElementById('canvas-container');
+      
+      // Scene
+      scene = new THREE.Scene();
+      scene.background = new THREE.Color('#a5f3fc'); // Cartoonish Blue sky default
+      scene.fog = new THREE.FogExp2('#a5f3fc', 0.012);
+
+      // Camera
+      camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 1000);
+      camera.position.set(0, 8, 12);
+
+      // Renderer
+      renderer = new THREE.WebGLRenderer({ antialias: true, preserveDrawingBuffer: true });
+      renderer.setSize(window.innerWidth, window.innerHeight);
+      renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+      renderer.shadowMap.enabled = true;
+      renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+      container.appendChild(renderer.domElement);
+
+      clock = new THREE.Clock();
+
+      // Lights
+      const ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
+      scene.add(ambientLight);
+
+      const sunLight = new THREE.DirectionalLight(0xfffbeb, 1.0);
+      sunLight.position.set(30, 40, 20);
+      sunLight.castShadow = true;
+      sunLight.shadow.mapSize.width = 1024;
+      sunLight.shadow.mapSize.height = 1024;
+      sunLight.shadow.camera.near = 0.5;
+      sunLight.shadow.camera.far = 150;
+      const d = 50;
+      sunLight.shadow.camera.left = -d;
+      sunLight.shadow.camera.right = d;
+      sunLight.shadow.camera.top = d;
+      sunLight.shadow.camera.bottom = -d;
+      scene.add(sunLight);
+
+      // Create dedicated outdoor & indoor grouping hierarchy
+      outdoorGroup = new THREE.Group();
+      scene.add(outdoorGroup);
+      
+      indoorGroup = new THREE.Group();
+      scene.add(indoorGroup);
+      indoorGroup.visible = false;
+
+      // AUTOMATED SCENE ROUTING WRAPPER (Saves hundreds of lines of file modifications safely!)
+      const originalSceneAdd = scene.add;
+      scene.add = function(obj) {
+        if (obj === ambientLight || obj === sunLight || obj === playerGroup || obj === outdoorGroup || obj === indoorGroup) {
+          originalSceneAdd.call(scene, obj);
+        } else {
+          outdoorGroup.add(obj);
+        }
+      };
+
+      // BUILD WORLD GEOMETRY
+      buildWorld();
+
+      // BUILD PLAYER CHARACTER
+      buildPlayerCharacter();
+
+      // INITIALIZE UPDATE 9 CREATIVE & SOCIAL CONTROLS
+      initDesignStudio();
+      initChatAndVoiceControls();
+
+      // Event Listeners
+      window.addEventListener('resize', onWindowResize);
+      setupVirtualJoystick();
+
+      // Keyboard input listeners (WASD / Arrows + Spacebar)
+      window.addEventListener('keydown', (e) => {
+        // If user is typing in chat input or any input field, do not trigger movement
+        const active = document.activeElement;
+        if (active && (active.tagName === 'INPUT' || active.tagName === 'TEXTAREA' || active.id === 'chat-input-field')) {
+          return;
+        }
+
+        if (e.code === 'KeyW' || e.code === 'ArrowUp') keys.forward = 1;
+        if (e.code === 'KeyS' || e.code === 'ArrowDown') keys.backward = 1;
+        if (e.code === 'KeyA' || e.code === 'ArrowLeft') keys.left = 1;
+        if (e.code === 'KeyD' || e.code === 'ArrowRight') keys.right = 1;
+
+        if (e.code === 'Space') {
+          if (isGrounded) {
+            velocity.y = jumpForce;
+            isGrounded = false;
+            triggerVibration();
+          }
+        }
+
+        updateJoystickFromKeys();
+      });
+
+      window.addEventListener('keyup', (e) => {
+        if (e.code === 'KeyW' || e.code === 'ArrowUp') keys.forward = 0;
+        if (e.code === 'KeyS' || e.code === 'ArrowDown') keys.backward = 0;
+        if (e.code === 'KeyA' || e.code === 'ArrowLeft') keys.left = 0;
+        if (e.code === 'KeyD' || e.code === 'ArrowRight') keys.right = 0;
+
+        updateJoystickFromKeys();
+      });
+
+      function updateJoystickFromKeys() {
+        let kx = 0;
+        let ky = 0;
+        if (keys.left) kx -= 1;
+        if (keys.right) kx += 1;
+        if (keys.forward) ky -= 1;
+        if (keys.backward) ky += 1;
+
+        // If keyboard keys are pressed, we override joystickInput. Otherwise, let joystick control if not dragging.
+        if (keys.forward || keys.backward || keys.left || keys.right) {
+          joystickInput.x = kx;
+          joystickInput.y = ky;
+        } else {
+          if (!isJoystickDragging) {
+            joystickInput.x = 0;
+            joystickInput.y = 0;
+          }
+        }
+      }
+
+      // Setup actions
+      document.getElementById('trigger-jump').onclick = () => {
+        if (isGrounded) {
+          velocity.y = jumpForce;
+          isGrounded = false;
+          triggerVibration();
+        }
+      };
+
+      // Trigger standard continuous rendering
+      requestAnimationFrame(animate);
+    }
+
+    function onWindowResize() {
+      camera.aspect = window.innerWidth / window.innerHeight;
+      camera.updateProjectionMatrix();
+      renderer.setSize(window.innerWidth, window.innerHeight);
+    }
+
+    // BUILD WORLD: PK XD ISLAND & CITY PLAZA
+    function buildWorld() {
+      // 1. Swimmable Blue Ocean Base (Large plane below the island)
+      const seaGeo = new THREE.PlaneGeometry(1000, 1000);
+      const seaMat = new THREE.MeshStandardMaterial({ color: '#0ea5e9', roughness: 0.1, metalness: 0.1 });
+      sea = new THREE.Mesh(seaGeo, seaMat);
+      sea.rotation.x = -Math.PI / 2;
+      sea.position.y = -2;
+      scene.add(sea);
+
+      // 2. PK XD Colorful Main Island: flat top, rounded cylinder base
+      const islandGroup = new THREE.Group();
+      
+      const topGeo = new THREE.CylinderGeometry(80, 85, 8, 32);
+      const topMat = new THREE.MeshStandardMaterial({ color: '#22c55e', roughness: 0.8 }); // Green meadow
+      ground = new THREE.Mesh(topGeo, topMat);
+      ground.position.y = -4;
+      ground.receiveShadow = true;
+      islandGroup.add(ground);
+
+      // Colorful rim base
+      const baseGeo = new THREE.CylinderGeometry(85, 40, 15, 32);
+      const baseMat = new THREE.MeshStandardMaterial({ color: '#ec4899', roughness: 0.5 }); // Pink rim style
+      const rim = new THREE.Mesh(baseGeo, baseMat);
+      rim.position.y = -15;
+      islandGroup.add(rim);
+
+      scene.add(islandGroup);
+
+      // 3. SKY PORTAL AT THE CENTER (Update 8)
+      // Purple glowing rotating torus
+      const portalGroup = new THREE.Group();
+      portalGroup.position.set(0, 1.5, 0);
+
+      const ringGeo = new THREE.TorusGeometry(3.5, 0.8, 16, 64);
+      const ringMat = new THREE.MeshStandardMaterial({ color: '#8b5cf6', emissive: '#7e22ce', roughness: 0.1 });
+      const ringMesh = new THREE.Mesh(ringGeo, ringMat);
+      ringMesh.name = "portal_ring";
+      portalGroup.add(ringMesh);
+
+      // Spinning inner portal disk with nice transparency
+      const diskGeo = new THREE.CylinderGeometry(3, 3, 0.2, 32);
+      const diskMat = new THREE.MeshStandardMaterial({ color: '#a855f7', emissive: '#4a044e', transparent: true, opacity: 0.7, side: THREE.DoubleSide });
+      const disk = new THREE.Mesh(diskGeo, diskMat);
+      disk.rotation.x = Math.PI / 2;
+      disk.name = "portal_disk";
+      portalGroup.add(disk);
+
+      scene.add(portalGroup);
+
+      // 4. FLOATING SKY ISLANDS (PARKOUR AREA)
+      const colorsParkour = ['#f43f5e', '#3b82f6', '#10b981', '#facc15', '#a855f7'];
+      let islandY = 40;
+      let islandZ = -10;
+      for (let i = 0; i < 8; i++) {
+        const skyIs = new THREE.Group();
+        skyIs.position.set((Math.random() - 0.5) * 20, islandY, islandZ);
+        
+        const blockGeo = new THREE.BoxGeometry(6, 1.5, 6);
+        const blockMat = new THREE.MeshStandardMaterial({ color: colorsParkour[i % colorsParkour.length], roughness: 0.4 });
+        const block = new THREE.Mesh(blockGeo, blockMat);
+        block.castShadow = true;
+        block.receiveShadow = true;
+        skyIs.add(block);
+
+        scene.add(skyIs);
+        skyIslands.push(skyIs);
+
+        // Spawn Gold Coin rotating above each sky island!
+        spawnGoldCoin(skyIs.position.x, skyIs.position.y + 2, skyIs.position.z);
+
+        islandY += 5;
+        islandZ -= 15;
+      }
+
+      // 5. CENTRAL PLAZA (MERKEZ PLAZA)
+      const plazaGroup = new THREE.Group();
+      plazaGroup.position.set(0, 0.02, 0);
+
+      // Central paved floor disc
+      const floorGeo = new THREE.CylinderGeometry(18, 18, 0.1, 32);
+      const floorMat = new THREE.MeshStandardMaterial({ color: '#cbd5e1', roughness: 0.7 }); // Light grey concrete
+      const floorMesh = new THREE.Mesh(floorGeo, floorMat);
+      floorMesh.receiveShadow = true;
+      plazaGroup.add(floorMesh);
+
+      // Inner decorative ring
+      const innerRingGeo = new THREE.RingGeometry(15, 15.5, 32);
+      const innerRingMat = new THREE.MeshBasicMaterial({ color: '#8b5cf6', side: THREE.DoubleSide });
+      const innerRing = new THREE.Mesh(innerRingGeo, innerRingMat);
+      innerRing.rotation.x = Math.PI/2;
+      innerRing.position.y = 0.08;
+      plazaGroup.add(innerRing);
+
+      // Decorative benches (x4 around the portal)
+      const benchPositions = [
+        { x: 0, z: 8, rot: 0 },
+        { x: 0, z: -8, rot: 0 },
+        { x: 8, z: 0, rot: Math.PI/2 },
+        { x: -8, z: 0, rot: Math.PI/2 }
+      ];
+      const benchWoodMat = new THREE.MeshStandardMaterial({ color: '#b45309', roughness: 0.9 });
+      const benchIronMat = new THREE.MeshStandardMaterial({ color: '#334155', roughness: 0.5 });
+      benchPositions.forEach(pos => {
+        const bench = new THREE.Group();
+        bench.position.set(pos.x, 0, pos.z);
+        bench.rotation.y = pos.rot;
+
+        // Seat
+        const seat = new THREE.Mesh(new THREE.BoxGeometry(3, 0.15, 0.8), benchWoodMat);
+        seat.position.set(0, 0.6, 0);
+        seat.castShadow = true;
+        bench.add(seat);
+
+        // Backrest
+        const back = new THREE.Mesh(new THREE.BoxGeometry(3, 0.6, 0.15), benchWoodMat);
+        back.position.set(0, 1.0, -0.35);
+        back.castShadow = true;
+        bench.add(back);
+
+        // Legs
+        const legL = new THREE.Mesh(new THREE.BoxGeometry(0.15, 0.6, 0.8), benchIronMat);
+        legL.position.set(-1.4, 0.3, 0);
+        bench.add(legL);
+        const legR = legL.clone();
+        legR.position.x = 1.4;
+        bench.add(legR);
+
+        plazaGroup.add(bench);
+      });
+
+      // Lampposts with glowing night lights (x4 at plaza borders)
+      const lampPositions = [
+        { x: 13, z: 13 },
+        { x: -13, z: -13 },
+        { x: 13, z: -13 },
+        { x: -13, z: 13 }
+      ];
+      const lampPostMat = new THREE.MeshStandardMaterial({ color: '#1e293b', roughness: 0.3 });
+      const lampGlowMat = new THREE.MeshBasicMaterial({ color: '#fef08a' }); // Glowing yellow lamp
+      lampPositions.forEach(pos => {
+        const lamp = new THREE.Group();
+        lamp.position.set(pos.x, 0, pos.z);
+
+        // Base
+        const base = new THREE.Mesh(new THREE.CylinderGeometry(0.5, 0.6, 0.4, 8), lampPostMat);
+        base.position.y = 0.2;
+        lamp.add(base);
+
+        // Pole
+        const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.15, 0.15, 6, 8), lampPostMat);
+        pole.position.y = 3.2;
+        pole.castShadow = true;
+        lamp.add(pole);
+
+        // Bulb head
+        const bulb = new THREE.Mesh(new THREE.SphereGeometry(0.5, 12, 12), lampGlowMat);
+        bulb.position.y = 6.4;
+        lamp.add(bulb);
+
+        // Add a point light from the bulb (performance-friendly)
+        const light = new THREE.PointLight('#fef08a', 0.8, 15);
+        light.position.y = 6.4;
+        light.castShadow = false; // keep performance solid
+        lamp.add(light);
+
+        plazaGroup.add(lamp);
+      });
+
+      scene.add(plazaGroup);
+
+      // 6. PLAZA DISTRICT (HIGH-RISE SKYSCRAPERS)
+      const skyscrapers = [
+        { x: -42, z: -42, height: 26, width: 11, depth: 11, color: '#0ea5e9', accentColor: '#38bdf8', tag: "Merto Holding Plaza" },
+        { x: -20, z: -48, height: 22, width: 10, depth: 10, color: '#d946ef', accentColor: '#f472b6', tag: "PK XD Tower" },
+        { x: -48, z: -20, height: 30, width: 12, depth: 12, color: '#6366f1', accentColor: '#818cf8', tag: "Cyber Plaza" }
+      ];
+
+      skyscrapers.forEach(sc => {
+        const buildGroup = new THREE.Group();
+        buildGroup.position.set(sc.x, 0, sc.z);
+
+        // Main body
+        const bodyGeo = new THREE.BoxGeometry(sc.width, sc.height, sc.depth);
+        const bodyMat = new THREE.MeshStandardMaterial({ color: sc.color, roughness: 0.3, metalness: 0.2 });
+        const body = new THREE.Mesh(bodyGeo, bodyMat);
+        body.position.y = sc.height / 2;
+        body.castShadow = true;
+        body.receiveShadow = true;
+        buildGroup.add(body);
+
+        // Architectural accent columns/stripes
+        const accentGeo = new THREE.BoxGeometry(1.2, sc.height, sc.depth + 0.2);
+        const accentMat = new THREE.MeshStandardMaterial({ color: sc.accentColor, roughness: 0.1 });
+        const stripe1 = new THREE.Mesh(accentGeo, accentMat);
+        stripe1.position.set(-sc.width/2 + 0.6, sc.height/2, 0);
+        buildGroup.add(stripe1);
+
+        const stripe2 = stripe1.clone();
+        stripe2.position.x = sc.width/2 - 0.6;
+        buildGroup.add(stripe2);
+
+        // Helipad or Roof decorations
+        const roofHeight = sc.height;
+        const roofGroup = new THREE.Group();
+        roofGroup.position.set(0, roofHeight, 0);
+
+        const padGeo = new THREE.CylinderGeometry(sc.width * 0.4, sc.width * 0.4, 0.3, 16);
+        const padMat = new THREE.MeshStandardMaterial({ color: '#475569', roughness: 0.8 });
+        const pad = new THREE.Mesh(padGeo, padMat);
+        pad.position.y = 0.15;
+        roofGroup.add(pad);
+
+        // Tall antenna
+        if (sc.height > 25) {
+          const antPole = new THREE.Mesh(new THREE.CylinderGeometry(0.1, 0.15, 6, 8), new THREE.MeshStandardMaterial({ color: '#cbd5e1' }));
+          antPole.position.y = 3.2;
+          roofGroup.add(antPole);
+
+          const antGlow = new THREE.Mesh(new THREE.SphereGeometry(0.3, 8, 8), new THREE.MeshBasicMaterial({ color: '#ef4444' }));
+          antGlow.position.y = 6.3;
+          roofGroup.add(antGlow);
+        }
+
+        buildGroup.add(roofGroup);
+
+        // Glowing Neon Windows Grid
+        const winGeo = new THREE.BoxGeometry(0.8, 0.8, 0.1);
+        const winGlowMat = new THREE.MeshBasicMaterial({ color: '#fef08a' }); // Warm window light
+
+        const floors = Math.floor(sc.height / 3.0);
+        const cols = Math.floor(sc.width / 2.5);
+
+        for (let f = 1; f < floors; f++) {
+          const winY = f * 3.0;
+          for (let c = 0; c < cols; c++) {
+            const winX = (c - (cols - 1) / 2) * 2.3;
+            
+            // Front windows
+            const winFront = new THREE.Mesh(winGeo, winGlowMat);
+            winFront.position.set(winX, winY, sc.depth/2 + 0.06);
+            buildGroup.add(winFront);
+
+            // Back windows
+            const winBack = winFront.clone();
+            winBack.position.z = -sc.depth/2 - 0.06;
+            buildGroup.add(winBack);
+          }
+        }
+
+        scene.add(buildGroup);
+      });
+
+      // 7. RESIDENTIAL DISTRICT (DETAILED CARTOON HOUSES)
+      const houses = [
+        { x: -30, z: 45, color: '#f43f5e', roofColor: '#991b1b', name: "Bubblegum Villa" },
+        { x: 0, z: 50, color: '#eab308', roofColor: '#78350f', name: "Sunny Cottage" },
+        { x: 30, z: 45, color: '#2563eb', roofColor: '#ea580c', name: "Ocean Bungalow" }
+      ];
+
+      houses.forEach(h => {
+        const houseGroup = new THREE.Group();
+        houseGroup.position.set(h.x, 0, h.z);
+
+        // House main body
+        const bodyGeo = new THREE.BoxGeometry(8, 5, 8);
+        const bodyMat = new THREE.MeshStandardMaterial({ color: h.color, roughness: 0.6 });
+        const body = new THREE.Mesh(bodyGeo, bodyMat);
+        body.position.y = 2.5;
+        body.castShadow = true;
+        body.receiveShadow = true;
+        houseGroup.add(body);
+
+        // Pitched Roof (Cone with 4 radial segments)
+        const roofGeo = new THREE.ConeGeometry(7, 3.5, 4);
+        const roofMat = new THREE.MeshStandardMaterial({ color: h.roofColor, roughness: 0.5 });
+        const roof = new THREE.Mesh(roofGeo, roofMat);
+        roof.rotation.y = Math.PI/4; // Align sides with house body
+        roof.position.set(0, 6.75, 0);
+        roof.castShadow = true;
+        houseGroup.add(roof);
+
+        // Chimney (for the Sunny Cottage)
+        if (h.color === '#eab308') {
+          const chimney = new THREE.Mesh(new THREE.BoxGeometry(1.2, 2.5, 1.2), new THREE.MeshStandardMaterial({ color: '#7c2d12' }));
+          chimney.position.set(2, 6.5, 2);
+          chimney.castShadow = true;
+          houseGroup.add(chimney);
+        }
+
+        // Wooden Front Door
+        const doorGeo = new THREE.BoxGeometry(1.8, 3.2, 0.2);
+        const doorMat = new THREE.MeshStandardMaterial({ color: '#78350f', roughness: 0.8 });
+        const door = new THREE.Mesh(doorGeo, doorMat);
+        door.position.set(0, 1.6, 4.02);
+        door.castShadow = true;
+        houseGroup.add(door);
+
+        // Door knob
+        const knob = new THREE.Mesh(new THREE.SphereGeometry(0.12, 8, 8), new THREE.MeshStandardMaterial({ color: '#eab308', metalness: 0.8 }));
+        knob.position.set(0.6, 1.6, 4.2);
+        houseGroup.add(knob);
+
+        // Windows (with glowing glass)
+        const glassGeo = new THREE.BoxGeometry(1.5, 1.5, 0.2);
+        const glassMat = new THREE.MeshBasicMaterial({ color: '#fef08a' }); // glowing window
+        const winFrameMat = new THREE.MeshStandardMaterial({ color: '#1e293b' });
+
+        const frameGeo = new THREE.BoxGeometry(1.7, 1.7, 0.15);
+        
+        // Left Window
+        const windowL = new THREE.Group();
+        windowL.position.set(-2.2, 2.8, 4.02);
+        const frameL = new THREE.Mesh(frameGeo, winFrameMat); windowL.add(frameL);
+        const glassL = new THREE.Mesh(glassGeo, glassMat); glassL.position.z = 0.05; windowL.add(glassL);
+        houseGroup.add(windowL);
+
+        // Right Window
+        const windowR = windowL.clone();
+        windowR.position.x = 2.2;
+        houseGroup.add(windowR);
+
+        // Side window
+        const windowSide = windowL.clone();
+        windowSide.position.set(4.02, 2.8, 0);
+        windowSide.rotation.y = Math.PI/2;
+        houseGroup.add(windowSide);
+
+        // Small front fence/posts
+        const fenceGroup = new THREE.Group();
+        for (let fx = -5; fx <= 5; fx += 2.5) {
+          if (Math.abs(fx) < 1.5) continue; // Keep door entrance clear
+          const post = new THREE.Mesh(new THREE.BoxGeometry(0.3, 1.5, 0.3), new THREE.MeshStandardMaterial({ color: '#f8fafc', roughness: 0.9 }));
+          post.position.set(fx, 0.75, 6);
+          post.castShadow = true;
+          fenceGroup.add(post);
+        }
+        // Horizontal railings
+        const railL = new THREE.Mesh(new THREE.BoxGeometry(3, 0.15, 0.15), new THREE.MeshStandardMaterial({ color: '#f8fafc' }));
+        railL.position.set(-3.5, 1.0, 6);
+        fenceGroup.add(railL);
+
+        const railR = railL.clone();
+        railR.position.x = 3.5;
+        fenceGroup.add(railR);
+
+        houseGroup.add(fenceGroup);
+
+        scene.add(houseGroup);
+      });
+
+      // 8. SHOPPING STREET (DETAILED PHYSICAL SHOPS & MERCHANT NPCS)
+      const shopStands = [
+        { x: 32, z: -20, tag: "Aksesuar Satıcısı", icon: "🎩", themeColor: '#a855f7', canopyColor: '#d946ef', signType: "hat" },
+        { x: 38, z: 0, tag: "Yiyecek Satıcısı", icon: "🍎", themeColor: '#10b981', canopyColor: '#facc15', signType: "apple" },
+        { x: 32, z: 20, tag: "Eşya Satıcısı", icon: "⚙️", themeColor: '#0ea5e9', canopyColor: '#f97316', signType: "gear" }
+      ];
+
+      shopStands.forEach(pos => {
+        const shop = new THREE.Group();
+        shop.position.set(pos.x, 0, pos.z);
+
+        // Shop foundation floor
+        const floorGeo = new THREE.BoxGeometry(7, 0.15, 6);
+        const floorMat = new THREE.MeshStandardMaterial({ color: '#cbd5e1', roughness: 0.8 });
+        const floor = new THREE.Mesh(floorGeo, floorMat);
+        floor.position.y = 0.08;
+        floor.receiveShadow = true;
+        shop.add(floor);
+
+        // Left wall
+        const wallMat = new THREE.MeshStandardMaterial({ color: pos.themeColor, roughness: 0.6 });
+        const wallL = new THREE.Mesh(new THREE.BoxGeometry(0.4, 4.0, 6), wallMat);
+        wallL.position.set(-3.3, 2.0, 0);
+        wallL.castShadow = true;
+        shop.add(wallL);
+
+        // Right wall
+        const wallR = wallL.clone();
+        wallR.position.x = 3.3;
+        shop.add(wallR);
+
+        // Back wall
+        const wallBack = new THREE.Mesh(new THREE.BoxGeometry(7, 4.0, 0.4), wallMat);
+        wallBack.position.set(0, 2.0, -2.8);
+        wallBack.castShadow = true;
+        shop.add(wallBack);
+
+        // Shop roof canopy (Striped pattern roof)
+        const canopy = new THREE.Mesh(new THREE.BoxGeometry(7.4, 0.3, 6.4), new THREE.MeshStandardMaterial({ color: pos.canopyColor, roughness: 0.5 }));
+        canopy.position.set(0, 4.15, 0);
+        canopy.castShadow = true;
+        shop.add(canopy);
+
+        // Decorative colorful canopy front trim (Stripes)
+        const trimMat = new THREE.MeshStandardMaterial({ color: '#ffffff', roughness: 0.4 });
+        for (let tx = -3.2; tx <= 3.2; tx += 1.6) {
+          const trim = new THREE.Mesh(new THREE.BoxGeometry(0.8, 0.5, 0.4), trimMat);
+          trim.position.set(tx, 3.8, 3.1);
+          shop.add(trim);
+        }
+
+        // Indoor sales counter table
+        const counterTable = new THREE.Mesh(new THREE.BoxGeometry(5.2, 1.6, 1.4), new THREE.MeshStandardMaterial({ color: '#f8fafc', roughness: 0.3 }));
+        counterTable.position.set(0, 0.8, 0.8);
+        counterTable.castShadow = true;
+        shop.add(counterTable);
+
+        // Decorative cash register on the counter
+        const register = new THREE.Mesh(new THREE.BoxGeometry(0.6, 0.5, 0.6), new THREE.MeshStandardMaterial({ color: '#475569' }));
+        register.position.set(-1.5, 1.8, 0.8);
+        shop.add(register);
+
+        // --- 3D SIGNBOARD ATOP THE ROOF ---
+        const signGroup = new THREE.Group();
+        signGroup.position.set(0, 5.5, 1.5);
+        if (pos.signType === 'hat') {
+          // Giant Top Hat
+          const rim = new THREE.Mesh(new THREE.CylinderGeometry(1.4, 1.4, 0.15, 16), new THREE.MeshStandardMaterial({ color: '#111827' }));
+          signGroup.add(rim);
+          const baseHat = new THREE.Mesh(new THREE.CylinderGeometry(0.9, 0.9, 1.2, 16), new THREE.MeshStandardMaterial({ color: '#ec4899', roughness: 0.2 }));
+          baseHat.position.y = 0.6;
+          signGroup.add(baseHat);
+        } else if (pos.signType === 'apple') {
+          // Giant Apple
+          const appleMesh = new THREE.Mesh(new THREE.SphereGeometry(0.85, 12, 12), new THREE.MeshStandardMaterial({ color: '#ef4444', roughness: 0.2 }));
+          signGroup.add(appleMesh);
+          const stem = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.08, 0.6), new THREE.MeshStandardMaterial({ color: '#78350f' }));
+          stem.position.y = 1.0;
+          stem.rotation.z = -Math.PI/6;
+          signGroup.add(stem);
+        } else if (pos.signType === 'gear') {
+          // Giant Spinning Gear / Star
+          const gear = new THREE.Mesh(new THREE.TorusGeometry(0.8, 0.3, 8, 16), new THREE.MeshStandardMaterial({ color: '#facc15', metalness: 0.8, roughness: 0.1 }));
+          gear.rotation.y = Math.PI/4;
+          signGroup.add(gear);
+        }
+        shop.add(signGroup);
+
+        // --- 3D BLOCKY SHOPKEEPER NPC ---
+        const npc = new THREE.Group();
+        npc.position.set(0, 0, -0.8); // Behind counter
+
+        const npcSkinMat = new THREE.MeshStandardMaterial({ color: '#fed7aa', roughness: 0.8 });
+        const npcClothesMat = new THREE.MeshStandardMaterial({ color: pos.themeColor, roughness: 0.8 });
+
+        // NPC Torso
+        const bMesh = new THREE.Mesh(new THREE.BoxGeometry(1.1, 1.5, 0.7), npcClothesMat);
+        bMesh.position.y = 1.25;
+        bMesh.castShadow = true;
+        npc.add(bMesh);
+
+        // NPC Head
+        const hMesh = new THREE.Mesh(new THREE.BoxGeometry(1.0, 1.0, 1.0), npcSkinMat);
+        hMesh.position.y = 2.4;
+        hMesh.castShadow = true;
+        npc.add(hMesh);
+
+        // NPC eyes
+        const eyeMat = new THREE.MeshBasicMaterial({ color: '#000000' });
+        const eyeL = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.12, 0.08), eyeMat);
+        eyeL.position.set(-0.2, 2.5, 0.52);
+        npc.add(eyeL);
+        const eyeR = eyeL.clone();
+        eyeR.position.x = 0.2;
+        npc.add(eyeR);
+
+        // Customize vendor head accessories inside group
+        if (pos.signType === 'hat') {
+          // Accessory merchant wears hat
+          const hat = new THREE.Mesh(new THREE.CylinderGeometry(0.5, 0.5, 0.4, 12), new THREE.MeshStandardMaterial({ color: '#1e293b' }));
+          hat.position.y = 3.0;
+          npc.add(hat);
+        } else if (pos.signType === 'apple') {
+          // Food merchant wears chef hat
+          const hatBase = new THREE.Mesh(new THREE.CylinderGeometry(0.4, 0.4, 0.3, 12), new THREE.MeshStandardMaterial({ color: '#ffffff' }));
+          hatBase.position.y = 3.0;
+          npc.add(hatBase);
+          const hatTop = new THREE.Mesh(new THREE.SphereGeometry(0.5, 8, 8), new THREE.MeshStandardMaterial({ color: '#ffffff' }));
+          hatTop.position.y = 3.3;
+          npc.add(hatTop);
+        } else if (pos.signType === 'gear') {
+          // Items merchant wears golden crown
+          const crown = new THREE.Group();
+          crown.position.set(0, 3.0, 0);
+          const crownBase = new THREE.Mesh(new THREE.CylinderGeometry(0.45, 0.45, 0.15, 12), new THREE.MeshStandardMaterial({ color: '#facc15', metalness: 0.8 }));
+          crown.add(crownBase);
+          for(let i=0; i<4; i++) {
+            const spike = new THREE.Mesh(new THREE.ConeGeometry(0.12, 0.3, 4), new THREE.MeshStandardMaterial({ color: '#facc15', metalness: 0.8 }));
+            spike.position.set(Math.cos(i*Math.PI/2)*0.38, 0.2, Math.sin(i*Math.PI/2)*0.38);
+            crown.add(spike);
+          }
+          npc.add(crown);
+        }
+
+        shop.add(npc);
+        scene.add(shop);
+
+        // Keep sign group in merchant info so we can rotate it dynamically
+        merchantsList.push({ group: shop, npcNode: npc, signNode: signGroup, type: pos.tag, icon: pos.icon });
+      });
+
+      // 9. TRAMPOLINE IN CITY (Launch Pad)
+      const trampGroup = new THREE.Group();
+      trampGroup.position.set(16, 0.4, -25);
+      
+      const frameGeo = new THREE.CylinderGeometry(4.2, 4.2, 0.8, 16);
+      const frameMat = new THREE.MeshStandardMaterial({ color: '#475569', roughness: 0.5 });
+      const frame = new THREE.Mesh(frameGeo, frameMat);
+      trampGroup.add(frame);
+
+      const bouncyGeo = new THREE.CylinderGeometry(3.8, 3.8, 0.2, 16);
+      const bouncyMat = new THREE.MeshStandardMaterial({ color: '#ef4444', roughness: 0.9 });
+      const pad = new THREE.Mesh(bouncyGeo, bouncyMat);
+      pad.position.y = 0.4;
+      trampGroup.add(pad);
+      
+      scene.add(trampGroup);
+      bouncyPads.push(trampGroup);
+
+      // 10. APPLE TREES (Shake and drop)
+      const treePositions = [
+        { x: -18, z: -10 }, { x: -28, z: 10 }, { x: -10, z: -25 }, { x: -30, z: -20 }
+      ];
+      treePositions.forEach(pos => {
+        const tree = new THREE.Group();
+        tree.position.set(pos.x, 0, pos.z);
+
+        const trunkGeo = new THREE.CylinderGeometry(0.8, 1.1, 5, 8);
+        const trunkMat = new THREE.MeshStandardMaterial({ color: '#78350f', roughness: 0.9 });
+        const trunk = new THREE.Mesh(trunkGeo, trunkMat);
+        trunk.position.y = 2.5;
+        trunk.castShadow = true;
+        tree.add(trunk);
+
+        const crownGeo = new THREE.DodecahedronGeometry(3.8, 1);
+        const crownMat = new THREE.MeshStandardMaterial({ color: '#16a34a', roughness: 0.9 });
+        const crown = new THREE.Mesh(crownGeo, crownMat);
+        crown.position.y = 5.5;
+        crown.castShadow = true;
+        tree.add(crown);
+
+        crown.name = "crown";
+
+        scene.add(tree);
+        shakingTrees.push({ group: tree, crown: crown, shakeTimer: 0, lastCollision: 0 });
+      });
+    }
+
+    // SPAWN FLOATING ROTATING COINS
+    function spawnGoldCoin(x, y, z) {
+      const coin = new THREE.Group();
+      coin.position.set(x, y, z);
+
+      const coinGeo = new THREE.CylinderGeometry(0.7, 0.7, 0.15, 12);
+      const coinMat = new THREE.MeshStandardMaterial({ color: '#facc15', metalness: 0.8, roughness: 0.1, emissive: '#ca8a04' });
+      const mesh = new THREE.Mesh(coinGeo, coinMat);
+      mesh.rotation.x = Math.PI / 2;
+      mesh.castShadow = true;
+      coin.add(mesh);
+
+      scene.add(coin);
+      goldCoins.push(coin);
+    }
+
+    // SPAWN FALLING APPLE
+    function spawnFallingApple(x, y, z) {
+      const apple = new THREE.Group();
+      apple.position.set(x + (Math.random() - 0.5) * 2, y, z + (Math.random() - 0.5) * 2);
+
+      const appleGeo = new THREE.SphereGeometry(0.4, 8, 8);
+      const appleMat = new THREE.MeshStandardMaterial({ color: '#ef4444', roughness: 0.3 });
+      const mesh = new THREE.Mesh(appleGeo, appleMat);
+      apple.add(mesh);
+
+      // stem
+      const stemGeo = new THREE.CylinderGeometry(0.04, 0.04, 0.3);
+      const stemMat = new THREE.MeshStandardMaterial({ color: '#78350f' });
+      const stem = new THREE.Mesh(stemGeo, stemMat);
+      stem.position.y = 0.5;
+      apple.add(stem);
+
+      scene.add(apple);
+      activeApples.push({ group: apple, velY: 0 });
+    }
+
+    // SPAWN A REAL BOT/FRIEND FOR LOBI LINK SIM
+    function spawnFriendPlayer3D(name) {
+      const friend = new THREE.Group();
+      // Spawn near city park
+      friend.position.set((Math.random() - 0.5) * 20, 1, -15);
+      
+      // Core block model (Cute cartoonish body)
+      const bGeo = new THREE.BoxGeometry(1.2, 1.8, 0.8);
+      const bMat = new THREE.MeshStandardMaterial({ color: '#10b981' });
+      const body = new THREE.Mesh(bGeo, bMat);
+      body.position.y = 0.9;
+      friend.add(body);
+
+      const hGeo = new THREE.BoxGeometry(1.0, 1.0, 1.0);
+      const hMat = new THREE.MeshStandardMaterial({ color: '#fbcfe8' });
+      const head = new THREE.Mesh(hGeo, hMat);
+      head.position.y = 2.3;
+      friend.add(head);
+
+      // Name indicator above friend's head
+      scene.add(friend);
+      friends3D.push({ name: name, group: friend });
+    }
+
+    function teleportToFriend(index) {
+      const f = friends3D[index];
+      if (f) {
+        playerGroup.position.copy(f.group.position);
+        playerGroup.position.y += 2;
+        showToast(`${f.name} yanına ışınlandın! 🚀`);
+        triggerVibration();
+        closePhone();
+      }
+    }
+
+    // SPAWN ENEMY ZOMBIES DURING NIGHT IN SURVIVAL
+    function toggleZombies3D(enable) {
+      // Clear current
+      zombiesList.forEach(z => scene.remove(z.group));
+      zombiesList = [];
+
+      if (enable) {
+        const spawnPoints = [{ x: 15, z: -30 }, { x: -15, z: -35 }, { x: 5, z: -25 }];
+        spawnPoints.forEach(pos => {
+          const zombie = new THREE.Group();
+          zombie.position.set(pos.x, 1, pos.z);
+
+          // Green zombie blocky
+          const bGeo = new THREE.BoxGeometry(1.2, 1.8, 0.8);
+          const bMat = new THREE.MeshStandardMaterial({ color: '#047857' });
+          const body = new THREE.Mesh(bGeo, bMat);
+          body.position.y = 0.9;
+          zombie.add(body);
+
+          const hGeo = new THREE.BoxGeometry(1.0, 1.0, 1.0);
+          const hMat = new THREE.MeshStandardMaterial({ color: '#15803d' });
+          const head = new THREE.Mesh(hGeo, hMat);
+          head.position.y = 2.3;
+          zombie.add(head);
+
+          // Glowing red eyes
+          const eyeGeo = new THREE.BoxGeometry(0.15, 0.15, 0.15);
+          const eyeMat = new THREE.MeshBasicMaterial({ color: '#ef4444' });
+          const eyeL = new THREE.Mesh(eyeGeo, eyeMat); eyeL.position.set(-0.25, 2.4, 0.5); zombie.add(eyeL);
+          const eyeR = eyeL.clone(); eyeR.position.x = 0.25; zombie.add(eyeR);
+
+          scene.add(zombie);
+          zombiesList.push({ group: zombie, lastAttack: 0 });
+        });
+
+        // Dim ambient lights for horror atmosphere
+        scene.background = new THREE.Color('#03000a');
+        scene.fog.color = new THREE.Color('#03000a');
+      } else {
+        scene.background = new THREE.Color('#a5f3fc');
+        scene.fog.color = new THREE.Color('#a5f3fc');
+      }
+    }
+
+    // BUILD INTEGRATED PLAYABLE CHARACTER
+    let torsoMeshObj, armLeftMeshObj, armRightMeshObj, legLeftMeshObj, legRightMeshObj, shoeLeftObj, shoeRightObj;
+
+    function buildPlayerCharacter() {
+      playerGroup = new THREE.Group();
+      playerGroup.position.set(0, 5, 10);
+      scene.add(playerGroup);
+
+      // Core character container for LERP movements and flips
+      characterCore = new THREE.Group();
+      playerGroup.add(characterCore);
+
+      // Material with outfit colors (updated by customize panel)
+      const skinMat = new THREE.MeshStandardMaterial({ color: state.character.skinColor, roughness: 0.8 });
+      const tshirtMat = new THREE.MeshStandardMaterial({ color: state.character.tshirtColor, roughness: 0.8 });
+      const pantsMat = new THREE.MeshStandardMaterial({ color: state.character.pantsColor, roughness: 0.8 });
+
+      // Torso (Main chest body)
+      const torsoGeo = new THREE.BoxGeometry(1.2, 1.6, 0.8);
+      torsoMeshObj = new THREE.Mesh(torsoGeo, tshirtMat);
+      torsoMeshObj.position.y = 1.3;
+      torsoMeshObj.castShadow = true;
+      characterCore.add(torsoMeshObj);
+
+      // Head Group
+      headNode = new THREE.Group();
+      headNode.position.set(0, 2.6, 0);
+      characterCore.add(headNode);
+
+      const headGeo = new THREE.BoxGeometry(1.1, 1.1, 1.1);
+      const head = new THREE.Mesh(headGeo, skinMat);
+      head.castShadow = true;
+      headNode.add(head);
+
+      // EXTREMELY DETAILED FACE FEATURES
+      // Eyes (Stylish black background)
+      const eyeGeo = new THREE.BoxGeometry(0.2, 0.2, 0.05);
+      const eyeMat = new THREE.MeshBasicMaterial({ color: '#1e293b' });
+      const eyeL = new THREE.Mesh(eyeGeo, eyeMat); eyeL.position.set(-0.25, 0.12, 0.55); headNode.add(eyeL);
+      const eyeR = eyeL.clone(); eyeR.position.x = 0.25; headNode.add(eyeR);
+
+      // Shinny White specular pupils (Makes eyes look adorable & alive)
+      const pupilGeo = new THREE.BoxGeometry(0.07, 0.07, 0.06);
+      const pupilMat = new THREE.MeshBasicMaterial({ color: '#ffffff' });
+      const pupilL = new THREE.Mesh(pupilGeo, pupilMat); pupilL.position.set(-0.21, 0.16, 0.58); headNode.add(pupilL);
+      const pupilR = pupilL.clone(); pupilR.position.x = 0.29; headNode.add(pupilR);
+
+      // Curved detailed eyebrows
+      const browGeo = new THREE.BoxGeometry(0.22, 0.04, 0.04);
+      const browMat = new THREE.MeshBasicMaterial({ color: '#0f172a' });
+      const browL = new THREE.Mesh(browGeo, browMat); browL.position.set(-0.25, 0.28, 0.56); browL.rotation.z = 0.08; headNode.add(browL);
+      const browR = browL.clone(); browR.position.x = 0.25; browR.rotation.z = -0.08; headNode.add(browR);
+
+      // Blushing cheeks (Super cute anime look)
+      const blushGeo = new THREE.BoxGeometry(0.18, 0.07, 0.04);
+      const blushMat = new THREE.MeshBasicMaterial({ color: '#f43f5e', transparent: true, opacity: 0.75 });
+      const blushL = new THREE.Mesh(blushGeo, blushMat); blushL.position.set(-0.36, -0.08, 0.55); headNode.add(blushL);
+      const blushR = blushL.clone(); blushR.position.x = 0.36; headNode.add(blushR);
+
+      // Cute smiling curved mouth
+      const mouthGeo = new THREE.BoxGeometry(0.25, 0.07, 0.04);
+      const mouthMat = new THREE.MeshBasicMaterial({ color: '#991b1b' });
+      const mouth = new THREE.Mesh(mouthGeo, mouthMat); mouth.position.set(0, -0.16, 0.55); headNode.add(mouth);
+
+      // Arms (Pivot points for swing)
+      armLeft = new THREE.Group(); armLeft.position.set(-0.75, 1.9, 0); characterCore.add(armLeft);
+      const armGeo = new THREE.BoxGeometry(0.35, 1.3, 0.45);
+      armLeftMeshObj = new THREE.Mesh(armGeo, tshirtMat); armLeftMeshObj.position.y = -0.55; armLeftMeshObj.castShadow = true; armLeft.add(armLeftMeshObj);
+
+      armRight = new THREE.Group(); armRight.position.set(0.75, 1.9, 0); characterCore.add(armRight);
+      armRightMeshObj = new THREE.Mesh(armGeo, tshirtMat); armRightMeshObj.position.y = -0.55; armRightMeshObj.castShadow = true; armRight.add(armRightMeshObj);
+
+      // Legs (Pivot points)
+      legLeft = new THREE.Group(); legLeft.position.set(-0.35, 0.5, 0); characterCore.add(legLeft);
+      const legGeo = new THREE.BoxGeometry(0.4, 1.0, 0.5);
+      legLeftMeshObj = new THREE.Mesh(legGeo, pantsMat); legLeftMeshObj.position.y = -0.4; legLeftMeshObj.castShadow = true; legLeft.add(legLeftMeshObj);
+
+      legRight = new THREE.Group(); legRight.position.set(0.35, 0.5, 0); characterCore.add(legRight);
+      legRightMeshObj = new THREE.Mesh(legGeo, pantsMat); legRightMeshObj.position.y = -0.4; legRightMeshObj.castShadow = true; legRight.add(legRightMeshObj);
+
+      // DETAILED 3D SNEAKER SHOES (At the base of left & right leg)
+      const shoeGeo = new THREE.BoxGeometry(0.46, 0.24, 0.66);
+      const shoeMat = new THREE.MeshStandardMaterial({ color: '#f8fafc', roughness: 0.5 });
+      shoeLeftObj = new THREE.Mesh(shoeGeo, shoeMat); shoeLeftObj.position.set(0, -0.9, 0.08); legLeft.add(shoeLeftObj);
+      shoeRightObj = shoeLeftObj.clone(); legRight.add(shoeRightObj);
+
+      // Node to hold accessories
+      accessoryNode = new THREE.Group();
+      characterCore.add(accessoryNode);
+
+      // Load initial outfits
+      update3DCharacterOutfit();
+    }
+
+    // CANVAS TEXTURE GENERATOR FOR PROCEDURAL CLOTHES (Creates over 5000+ Permutations!)
+    function generateOutfitTexture(pattern, primaryColor, decal) {
+      const canvas = document.createElement('canvas');
+      canvas.width = 128;
+      canvas.height = 128;
+      const ctx = canvas.getContext('2d');
+
+      // 1. Fill base primary color
+      ctx.fillStyle = primaryColor || '#3b82f6';
+      ctx.fillRect(0, 0, 128, 128);
+
+      // 2. Draw procedural design patterns
+      ctx.fillStyle = 'rgba(255, 255, 255, 0.25)';
+      if (pattern === 'striped') {
+        for (let i = 0; i < 128; i += 16) {
+          ctx.fillRect(i, 0, 8, 128);
+        }
+      } else if (pattern === 'camo') {
+        ctx.fillStyle = 'rgba(15, 23, 42, 0.15)';
+        for(let i=0; i<10; i++) {
+          ctx.beginPath();
+          ctx.arc(20 + (i*15)%90, 15 + (i*23)%90, 12 + (i%3)*4, 0, Math.PI*2);
+          ctx.fill();
+        }
+      } else if (pattern === 'checkers') {
+        for (let i = 0; i < 128; i += 32) {
+          for (let j = 0; j < 128; j += 32) {
+            if (((i/32) + (j/32)) % 2 === 0) {
+              ctx.fillRect(i, j, 32, 32);
+            }
+          }
+        }
+      } else if (pattern === 'stars') {
+        ctx.fillStyle = 'rgba(254, 240, 138, 0.4)';
+        ctx.font = '20px Arial';
+        ctx.fillText('★', 10, 30);
+        ctx.fillText('★', 90, 40);
+        ctx.fillText('★', 50, 100);
+        ctx.fillText('★', 100, 110);
+      } else if (pattern === 'waves') {
+        ctx.strokeStyle = 'rgba(255, 255, 255, 0.35)';
+        ctx.lineWidth = 4;
+        ctx.beginPath();
+        for (let x = 0; x < 128; x++) {
+          ctx.lineTo(x, 64 + Math.sin(x * 0.15) * 14);
+        }
+        ctx.stroke();
+      }
+
+      // 3. Render chest badge badge sticker
+      if (decal) {
+        ctx.fillStyle = '#ffffff';
+        ctx.font = '54px Arial';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(decal, 64, 64);
+      }
+
+      const tex = new THREE.CanvasTexture(canvas);
+      tex.wrapS = THREE.RepeatWrapping;
+      tex.wrapT = THREE.RepeatWrapping;
+      return tex;
+    }
+
+    // UPDATE PLAYER GEOMETRY BASED ON WARDROBE SELECTIONS
+    function update3DCharacterOutfit() {
+      if (!characterCore) return;
+
+      // Check if equipped custom designed items exist
+      const customTshirt = state.character.customTshirt;
+      const customPants = state.character.customPants;
+      const customShoesColor = state.character.customShoesColor;
+
+      // Torso Material Draping
+      if (customTshirt) {
+        const tex = generateOutfitTexture(customTshirt.pattern, customTshirt.color1, customTshirt.decal);
+        torsoMeshObj.material = new THREE.MeshStandardMaterial({ map: tex, roughness: 0.8 });
+        armLeftMeshObj.material = new THREE.MeshStandardMaterial({ map: tex, roughness: 0.8 });
+        armRightMeshObj.material = new THREE.MeshStandardMaterial({ map: tex, roughness: 0.8 });
+      } else {
+        const mat = new THREE.MeshStandardMaterial({ color: state.character.tshirtColor, roughness: 0.8 });
+        torsoMeshObj.material = mat;
+        armLeftMeshObj.material = mat;
+        armRightMeshObj.material = mat;
+      }
+
+      // Pants Material Draping
+      if (customPants) {
+        const tex = generateOutfitTexture(customPants.pattern, customPants.color1, '');
+        legLeftMeshObj.material = new THREE.MeshStandardMaterial({ map: tex, roughness: 0.8 });
+        legRightMeshObj.material = new THREE.MeshStandardMaterial({ map: tex, roughness: 0.8 });
+      } else {
+        const mat = new THREE.MeshStandardMaterial({ color: state.character.pantsColor, roughness: 0.8 });
+        legLeftMeshObj.material = mat;
+        legRightMeshObj.material = mat;
+      }
+
+      // Sneaker Sole Color
+      if (customShoesColor) {
+        shoeLeftObj.material.color.set(customShoesColor);
+        shoeRightObj.material.color.set(customShoesColor);
+      } else {
+        shoeLeftObj.material.color.set('#f8fafc');
+        shoeRightObj.material.color.set('#f8fafc');
+      }
+
+      // Base skin updates
+      headNode.children[0].material.color.set(state.character.skinColor);
+
+      // Clear existing accessory meshes safely
+      const toRemove = [];
+      accessoryNode.traverse(c => { if (c.name === 'accessory_mesh') toRemove.push(c); });
+      toRemove.forEach(c => accessoryNode.remove(c));
+
+      const accs = state.character.accessories;
+      const accMat = new THREE.MeshStandardMaterial({ color: '#ffffff', roughness: 0.1 });
+
+      // 1. Hat
+      if (accs.hat) {
+        const hat = new THREE.Group(); hat.name = 'accessory_mesh'; hat.position.set(0, 3.25, 0);
+        const rim = new THREE.Mesh(new THREE.CylinderGeometry(0.8, 0.8, 0.1, 16), new THREE.MeshStandardMaterial({ color: '#111' })); hat.add(rim);
+        const topPart = new THREE.Mesh(new THREE.CylinderGeometry(0.55, 0.55, 0.8, 16), new THREE.MeshStandardMaterial({ color: '#ec4899' })); topPart.position.y = 0.45; hat.add(topPart);
+        accessoryNode.add(hat);
+      }
+      // 2. Anime Hair
+      if (accs.hair) {
+        const hair = new THREE.Group(); hair.name = 'accessory_mesh'; hair.position.set(0, 3.1, -0.15);
+        for(let i=0; i<5; i++) {
+          const spike = new THREE.Mesh(new THREE.ConeGeometry(0.35, 0.9, 4), new THREE.MeshStandardMaterial({ color: '#06b6d4' }));
+          spike.rotation.x = -Math.PI/6; spike.position.set((i-2)*0.3, 0.2, -0.1); hair.add(spike);
+        }
+        accessoryNode.add(hair);
+      }
+      // 3. Headphones
+      if (accs.headphones) {
+        const phone = new THREE.Group(); phone.name = 'accessory_mesh'; phone.position.set(0, 2.6, 0);
+        const band = new THREE.Mesh(new THREE.TorusGeometry(0.65, 0.08, 8, 24, Math.PI), new THREE.MeshStandardMaterial({ color: '#111' })); band.rotation.z = Math.PI; phone.add(band);
+        const earL = new THREE.Mesh(new THREE.CylinderGeometry(0.3, 0.3, 0.18, 12), new THREE.MeshStandardMaterial({ color: '#eab308' })); earL.rotation.z = Math.PI/2; earL.position.x = -0.6; phone.add(earL);
+        const earR = earL.clone(); earR.position.x = 0.6; phone.add(earR);
+        accessoryNode.add(phone);
+      }
+      // 4. Halo (Angel Hale)
+      if (accs.halo) {
+        const halo = new THREE.Mesh(new THREE.TorusGeometry(0.42, 0.06, 8, 24), new THREE.MeshStandardMaterial({ color: '#facc15', emissive: '#ca8a04' }));
+        halo.name = 'accessory_mesh'; halo.rotation.x = Math.PI/2; halo.position.set(0, 3.6, 0);
+        accessoryNode.add(halo);
+      }
+      // 5. Wings (Melek Kanatları)
+      if (accs.wings) {
+        const wings = new THREE.Group(); wings.name = 'accessory_mesh'; wings.position.set(0, 1.5, -0.5);
+        const wingL = new THREE.Mesh(new THREE.BoxGeometry(1.6, 0.6, 0.08), new THREE.MeshStandardMaterial({ color: '#ffffff' })); wingL.position.x = -0.9; wingL.rotation.z = Math.PI/12; wings.add(wingL);
+        const wingR = wingL.clone(); wingR.position.x = 0.9; wingR.rotation.z = -Math.PI/12; wings.add(wingR);
+        accessoryNode.add(wings);
+      }
+      // 6. Cape (Pelerin)
+      if (accs.cape) {
+        const cape = new THREE.Mesh(new THREE.BoxGeometry(0.8, 1.4, 0.08), new THREE.MeshStandardMaterial({ color: '#ef4444' }));
+        cape.name = 'accessory_mesh'; cape.position.set(0, 1.1, -0.45); cape.rotation.x = Math.PI/24;
+        accessoryNode.add(cape);
+      }
+      // 7. Sword (Işık Kılıcı)
+      if (accs.sword) {
+        const sword = new THREE.Group(); sword.name = 'accessory_mesh'; sword.position.set(0.6, 1.2, -0.4); sword.rotation.z = Math.PI/4;
+        const blade = new THREE.Mesh(new THREE.CylinderGeometry(0.1, 0.1, 1.8), new THREE.MeshStandardMaterial({ color: '#06b6d4', emissive: '#0891b2' })); blade.position.y = 0.9; sword.add(blade);
+        const hilt = new THREE.Mesh(new THREE.CylinderGeometry(0.12, 0.12, 0.4), new THREE.MeshStandardMaterial({ color: '#475569' })); sword.add(hilt);
+        accessoryNode.add(sword);
+      }
+    }
+
+    // Toggle items dynamically purchased from City Shop app
+    function toggleHoverboard3D(visible) {
+      if (!playerGroup) return;
+      if (hoverboardMesh) playerGroup.remove(hoverboardMesh);
+      if (visible) {
+        const boardGeo = new THREE.BoxGeometry(1.6, 0.25, 2.2);
+        const boardMat = new THREE.MeshStandardMaterial({ color: '#facc15', metalness: 0.9, roughness: 0.1, emissive: '#eab308' });
+        hoverboardMesh = new THREE.Mesh(boardGeo, boardMat);
+        hoverboardMesh.position.set(0, 0, 0);
+        playerGroup.add(hoverboardMesh);
+      }
+    }
+
+    function toggleCrown3D(visible) {
+      if (!headNode) return;
+      if (crownMesh) headNode.remove(crownMesh);
+      if (visible) {
+        crownMesh = new THREE.Group();
+        const base = new THREE.Mesh(new THREE.CylinderGeometry(0.55, 0.55, 0.2, 16), new THREE.MeshStandardMaterial({ color: '#facc15', metalness: 0.8 }));
+        crownMesh.add(base);
+        for (let i = 0; i < 4; i++) {
+          const spike = new THREE.Mesh(new THREE.ConeGeometry(0.15, 0.4, 4), new THREE.MeshStandardMaterial({ color: '#facc15', metalness: 0.8 }));
+          spike.position.set(Math.cos(i * Math.PI / 2) * 0.45, 0.25, Math.sin(i * Math.PI / 2) * 0.45);
+          crownMesh.add(spike);
+        }
+        crownMesh.position.set(0, 0.65, 0);
+        headNode.add(crownMesh);
+      }
+    }
+
+    // VIRTUAL JOYSTICK & MOBILE MOVEMENT
+    function setupVirtualJoystick() {
+      const handle = document.getElementById('joystick-handle');
+      const container = document.getElementById('joystick-container');
+      const maxDist = 35; // px
+
+      let dragStart = null;
+
+      function handleStart(e) {
+        const clientX = e.clientX || e.touches[0].clientX;
+        const clientY = e.clientY || e.touches[0].clientY;
+        dragStart = { x: clientX, y: clientY };
+        isJoystickDragging = true;
+      }
+
+      function handleMove(e) {
+        if (!dragStart) return;
+        const clientX = e.clientX || e.touches[0].clientX;
+        const clientY = e.clientY || e.touches[0].clientY;
+
+        const dx = clientX - dragStart.x;
+        const dy = clientY - dragStart.y;
+        const dist = Math.sqrt(dx*dx + dy*dy);
+
+        let dragX = dx;
+        let dragY = dy;
+
+        if (dist > maxDist) {
+          dragX = (dx / dist) * maxDist;
+          dragY = (dy / dist) * maxDist;
+        }
+
+        handle.style.transform = `translate(${dragX}px, ${dragY}px)`;
+
+        // Normalized outputs
+        joystickInput.x = dragX / maxDist;
+        joystickInput.y = dragY / maxDist;
+      }
+
+      function handleEnd() {
+        dragStart = null;
+        isJoystickDragging = false;
+        handle.style.transform = `translate(0px, 0px)`;
+        joystickInput.x = 0;
+        joystickInput.y = 0;
+      }
+
+      container.addEventListener('mousedown', handleStart);
+      window.addEventListener('mousemove', handleMove);
+      window.addEventListener('mouseup', handleEnd);
+
+      container.addEventListener('touchstart', handleStart);
+      window.addEventListener('touchmove', handleMove);
+      window.addEventListener('touchend', handleEnd);
+    }
+
+    // TRIGGER TEMPORARY GESTURE ANIMATION STATE
+    let activeGesture = null;
+    let gestureTimer = 0;
+    function playCharacterGesture(type) {
+      activeGesture = type;
+      gestureTimer = 2.0; // Seconds duration
+      showToast(`Animasyon oynatılıyor: ${type.toUpperCase()}`);
+    }
+
+
+    // -------------------------------------------------------------
+    // ANIMATION & PHYSICS ENGINE LOOP
+    // -------------------------------------------------------------
+    function animate(timestamp) {
+      requestAnimationFrame(animate);
+
+      const delta = clock.getDelta();
+
+      // Ensure delta is within sane bounds to prevent massive physics leaps during freezes
+      const dt = Math.min(delta, 0.1);
+
+      // Rotate beautiful central Sky Portal
+      const portalRing = scene.getObjectByName("portal_ring");
+      const portalDisk = scene.getObjectByName("portal_disk");
+      if (portalRing) portalRing.rotation.z += dt * 1.5;
+      if (portalDisk) portalDisk.rotation.y += dt * 0.8;
+
+      // Spin floating gold coins
+      goldCoins.forEach(coin => {
+        coin.rotation.y += dt * 2.0;
+      });
+
+      // 1. CHARACTER PHYSICS & CONTROLLER
+      let moveX = joystickInput.x;
+      let moveZ = joystickInput.y;
+
+      let speed = state.speedUpgrade ? playerSpeed * 1.5 : playerSpeed;
+
+      // Walk limb animation state
+      let walkCycle = 0;
+
+      if (Math.abs(moveX) > 0.1 || Math.abs(moveZ) > 0.1) {
+        // Horizontal relative movement
+        const camDir = new THREE.Vector3();
+        camera.getWorldDirection(camDir);
+        camDir.y = 0;
+        camDir.normalize();
+
+        const camRight = new THREE.Vector3(-camDir.z, 0, camDir.x);
+
+        const moveVec = new THREE.Vector3();
+        moveVec.addScaledVector(camRight, moveX);
+        moveVec.addScaledVector(camDir, -moveZ);
+        moveVec.normalize();
+
+        const oldX = playerGroup.position.x;
+        const oldZ = playerGroup.position.z;
+        playerGroup.position.addScaledVector(moveVec, speed * dt);
+        
+        // Solid wall collision checking with sliding mechanics
+        checkWorldCollisions(playerGroup.position, { x: oldX, z: oldZ });
+
+        // Rotate character towards moving direction smoothly
+        const targetRot = Math.atan2(moveVec.x, moveVec.z);
+        characterCore.rotation.y = targetRot;
+
+        // Limb swinging
+        walkCycle = timestamp * 0.01;
+        armLeft.rotation.x = Math.sin(walkCycle) * 0.8;
+        armRight.rotation.x = -Math.sin(walkCycle) * 0.8;
+        legLeft.rotation.x = -Math.sin(walkCycle) * 0.8;
+        legRight.rotation.x = Math.sin(walkCycle) * 0.8;
+      } else {
+        // IDLE pose smoothly reset
+        armLeft.rotation.x = THREE.MathUtils.lerp(armLeft.rotation.x, 0, 0.15);
+        armRight.rotation.x = THREE.MathUtils.lerp(armRight.rotation.x, 0, 0.15);
+        legLeft.rotation.x = THREE.MathUtils.lerp(legLeft.rotation.x, 0, 0.15);
+        legRight.rotation.x = THREE.MathUtils.lerp(legRight.rotation.x, 0, 0.15);
+      }
+
+      // GESTURE SPECIAL SEQUENCES OVERRIDES
+      if (activeGesture && gestureTimer > 0) {
+        gestureTimer -= dt;
+        if (activeGesture === 'dance') {
+          // Dance wave
+          characterCore.rotation.y += dt * 4;
+          armLeft.rotation.z = Math.sin(timestamp * 0.015) * 1.2 + 0.5;
+          armRight.rotation.z = -Math.sin(timestamp * 0.015) * 1.2 - 0.5;
+        } else if (activeGesture === 'wave') {
+          armRight.rotation.z = Math.sin(timestamp * 0.02) * 0.8 + 1.2;
+          armRight.rotation.x = 0;
+        } else if (activeGesture === 'flip') {
+          // Somersault rot
+          characterCore.rotation.x += dt * (Math.PI * 2);
+        } else if (activeGesture === 'robot') {
+          armLeft.rotation.x = Math.floor(Math.sin(timestamp*0.01)*3)/3;
+          armRight.rotation.x = Math.floor(Math.cos(timestamp*0.01)*3)/3;
+        }
+
+        if (gestureTimer <= 0) {
+          activeGesture = null;
+          characterCore.rotation.x = 0;
+          armLeft.rotation.z = 0;
+          armRight.rotation.z = 0;
+        }
+      }
+
+      // Vertical movement & gravity
+      velocity.y += gravity * dt;
+      playerGroup.position.y += velocity.y * dt;
+
+      // 2. COLLISION DETECTION & ENVIRONMENT HANDLING
+      isGrounded = false;
+
+      // Ground Plane Collision (Y=0 boundary)
+      const distFromCenter = Math.sqrt(playerGroup.position.x * playerGroup.position.x + playerGroup.position.z * playerGroup.position.z);
+      
+      let platformHeight = 0;
+
+      if (distFromCenter < 80) {
+        // On main island
+        platformHeight = 0;
+      } else {
+        // In ocean! Play swimming state
+        platformHeight = -2;
+        if (playerGroup.position.y <= platformHeight) {
+          playerGroup.position.y = platformHeight;
+          velocity.y = 0;
+          isGrounded = true;
+          // Slowly recover thirst in water
+          if (state.isSurvival) {
+            state.thirst = Math.min(100, state.thirst + 10 * dt);
+            updateSurvivalHUD();
+          }
+        }
+      }
+
+      // Sky Islands parkour blocks collisions
+      skyIslands.forEach(island => {
+        const dx = playerGroup.position.x - island.position.x;
+        const dy = playerGroup.position.y - island.position.y;
+        const dz = playerGroup.position.z - island.position.z;
+
+        if (Math.abs(dx) < 3.2 && dy >= 0 && dy < 1.5 && Math.abs(dz) < 3.2) {
+          playerGroup.position.y = island.position.y + 0.8;
+          velocity.y = 0;
+          isGrounded = true;
+        }
+      });
+
+      // Ground check fallback
+      if (playerGroup.position.y <= platformHeight) {
+        playerGroup.position.y = platformHeight;
+        velocity.y = 0;
+        isGrounded = true;
+      }
+
+      // 3. SKY PORTAL CONTACT PHYSICS
+      if (distFromCenter < 3.8 && Math.abs(playerGroup.position.y - 1.5) < 3.0) {
+        // TELEPORT! Shoot character way up into high sky parkour
+        playerGroup.position.set(0, 48, -10); // Spawns near first floating sky island
+        velocity.set(0, 0, 0);
+        showToast("🌀 Gökyüzü Portalından Süzülerek İniyorsun!");
+        triggerVibration();
+      }
+
+      // 4. TRAMPOLINE CONTACT BOUNCE
+      bouncyPads.forEach(pad => {
+        const dx = playerGroup.position.x - pad.position.x;
+        const dz = playerGroup.position.z - pad.position.z;
+        const dy = playerGroup.position.y - pad.position.y;
+
+        if (Math.sqrt(dx*dx + dz*dz) < 4.2 && dy >= -0.2 && dy < 1.2) {
+          // SHOOT TO HEAVEN!
+          velocity.y = 24;
+          showToast("🚀 Trambolinden Göklere Fırladın!");
+          triggerVibration();
+        }
+      });
+
+      // 5. SHAKE TREES ON DASH / SPEED IMPACT
+      shakingTrees.forEach(tree => {
+        const dx = playerGroup.position.x - tree.group.position.x;
+        const dz = playerGroup.position.z - tree.group.position.z;
+        const dist = Math.sqrt(dx*dx + dz*dz);
+
+        if (dist < 2.5) {
+          // Dash impact / bump check
+          const now = Date.now();
+          if (now - tree.lastCollision > 5000) {
+            tree.lastCollision = now;
+            tree.shakeTimer = 1.5; // Shaking duration
+            showToast("🌳 Ağaca Çarptın! Elmalar Düşüyor!");
+            triggerVibration();
+            // Drop 2-3 apples
+            for(let a=0; a<2; a++) {
+              spawnFallingApple(tree.group.position.x, 6, tree.group.position.z);
+            }
+          }
+        }
+
+        // Apply visual tree shake animation
+        if (tree.shakeTimer > 0) {
+          tree.shakeTimer -= dt;
+          tree.crown.rotation.z = Math.sin(timestamp * 0.05) * 0.15;
+          tree.crown.rotation.x = Math.cos(timestamp * 0.05) * 0.15;
+          if (tree.shakeTimer <= 0) {
+            tree.crown.rotation.set(0,0,0);
+          }
+        }
+      });
+
+      // 6. PROCESS FALLING APPLES PHYSICS & COLLECT
+      const applesToKeep = [];
+      activeApples.forEach(apple => {
+        apple.velY += gravity * dt;
+        apple.group.position.y += apple.velY * dt;
+
+        // Ground level collision
+        if (apple.group.position.y < 0.3) {
+          apple.group.position.y = 0.3;
+          apple.velY = 0;
+        }
+
+        // Collection check by player
+        const dx = playerGroup.position.x - apple.group.position.x;
+        const dz = playerGroup.position.z - apple.group.position.z;
+        const dy = playerGroup.position.y - apple.group.position.y;
+        
+        if (Math.sqrt(dx*dx + dz*dz) < 1.6 && Math.abs(dy) < 1.5) {
+          scene.remove(apple.group);
+          eatApple();
+        } else {
+          applesToKeep.push(apple);
+        }
+      });
+      activeApples = applesToKeep;
+
+      // 7. GOLD COINS PICKUP CHECK
+      const coinsToKeep = [];
+      goldCoins.forEach(coin => {
+        const dx = playerGroup.position.x - coin.position.x;
+        const dz = playerGroup.position.z - coin.position.z;
+        const dy = playerGroup.position.y - coin.position.y;
+
+        if (Math.sqrt(dx*dx + dz*dz) < 1.8 && Math.abs(dy) < 1.8) {
+          scene.remove(coin);
+          state.gold += 10;
+          document.getElementById('gold-val').innerText = state.gold;
+          showToast("🪙 +10 Altın Parası Kazanıldı!");
+          saveState();
+          triggerVibration();
+        } else {
+          coinsToKeep.push(coin);
+        }
+      });
+      goldCoins = coinsToKeep;
+
+      // 8. NPC INTERACTIONS (Smooth looking rotation, spinning signboards and floating interact prompts)
+      let nearNpc = null;
+      let minNpcDist = 99999;
+
+      merchantsList.forEach(m => {
+        // Rotate 3D signboard atop shop roofs
+        if (m.signNode) {
+          m.signNode.rotation.y += 0.015;
+        }
+
+        const dx = playerGroup.position.x - m.group.position.x;
+        const dz = playerGroup.position.z - m.group.position.z;
+        const dist = Math.sqrt(dx*dx + dz*dz);
+
+        if (dist < 5.0) {
+          // Smoothly face the player
+          if (m.npcNode) {
+            const targetRot = Math.atan2(playerGroup.position.x - m.group.position.x, playerGroup.position.z - m.group.position.z);
+            // Slerp-like angle rotation helper
+            let diff = targetRot - m.npcNode.rotation.y;
+            while (diff < -Math.PI) diff += Math.PI * 2;
+            while (diff > Math.PI) diff -= Math.PI * 2;
+            m.npcNode.rotation.y += diff * 0.12;
+          }
+          if (dist < minNpcDist) {
+            minNpcDist = dist;
+            nearNpc = m;
+          }
+        }
+      });
+
+      // Update Floating Interaction HUD prompt based on nearest shop
+      const promptEl = document.getElementById('npc-interaction-prompt');
+      if (nearNpc) {
+        document.getElementById('npc-prompt-icon').innerText = nearNpc.icon;
+        document.getElementById('npc-prompt-text').innerText = `${nearNpc.type}`;
+        promptEl.classList.remove('hidden');
+        document.getElementById('btn-interact-npc').onclick = function() {
+          openNpcShop(nearNpc.type);
+        };
+      } else {
+        promptEl.classList.add('hidden');
+      }
+
+      // 9. ZOMBIES SENSORS & AI TRACKING IN SURVIVAL
+      if (state.isSurvival) {
+        zombiesList.forEach(zombie => {
+          // Walk zombie towards player coordinates
+          const dir = new THREE.Vector3().subVectors(playerGroup.position, zombie.group.position);
+          dir.y = 0;
+          const dist = dir.length();
+          dir.normalize();
+
+          // Smooth rotation to look at player
+          const targetRot = Math.atan2(dir.x, dir.z);
+          zombie.group.rotation.y = targetRot;
+
+          // Simple constant pursuit speed
+          const zombieSpeed = 4.2;
+          zombie.group.position.addScaledVector(dir, zombieSpeed * dt);
+
+          // Bounce leg motion
+          zombie.group.children[0].position.y = 0.9 + Math.abs(Math.sin(timestamp * 0.008)) * 0.15;
+
+          // Hit damage check
+          if (dist < 1.8) {
+            const now = Date.now();
+            if (now - zombie.lastAttack > 1500) {
+              zombie.lastAttack = now;
+              state.hp = Math.max(0, state.hp - 18);
+              updateSurvivalHUD();
+              showToast("💀 Dikkat! Zombi Saldırdı! -18 CAN!");
+              triggerVibration();
+              if (state.hp <= 0) {
+                playerDieAndRespawn();
+              }
+            }
+          }
+        });
+      }
+
+      // 10. SMOOTH CAMERA LERP SYSTEM (3rd person)
+      const targetCamPos = new THREE.Vector3();
+      targetCamPos.copy(playerGroup.position);
+      // Offset behind player
+      targetCamPos.x += Math.sin(playerGroup.rotation.y + Math.PI) * 9.5;
+      targetCamPos.z += Math.cos(playerGroup.rotation.y + Math.PI) * 9.5;
+      targetCamPos.y += 5.5;
+
+      camera.position.lerp(targetCamPos, 0.08); // smooth LERP follow
+      
+      const lookTarget = new THREE.Vector3().copy(playerGroup.position);
+      lookTarget.y += 1.8;
+      camera.lookAt(lookTarget);
+
+      // Refresh HUD enter/exit prompts, voice circles, and projected bubble alignments
+      checkEnterExitPrompts();
+      updateSpeechBubblesProjector();
+
+      // Render Scene
+      renderer.render(scene, camera);
+    }
+
+    // --- PHYSICAL SHOP NPC MERCHANTS INTERACTION LOGIC ---
+    const npcShopItems = {
+      "Aksesuar Satıcısı": [
+        { id: "hat", name: "Pembe Silindir Şapka 🎩", description: "Havalı, lüks pembe silindir şapka.", cost: 30, currency: "gold" },
+        { id: "hair", name: "Siber Anime Saçı 💇", description: "Parlak mavi neon anime saç modeli.", cost: 60, currency: "gold" },
+        { id: "headphones", name: "RGB Oyuncu Kulaklığı 🎧", description: "Siber neon yeşil RGB kulaklıklar.", cost: 90, currency: "gold" },
+        { id: "halo", name: "Melek Halesi 😇", description: "Başının üzerinde süzülen kutsal altın halka.", cost: 25, currency: "gem" }
+      ],
+      "Yiyecek Satıcısı": [
+        { id: "apple_food", name: "Taze Sulu Elma 🍎", description: "Yenildiğinde canını +25 yeniler.", cost: 4, currency: "gold" },
+        { id: "health_potion", name: "Mega Şifa İksiri ❤️", description: "Can barını anında fullller (%100 yapar).", cost: 15, currency: "gold" },
+        { id: "cola_drink", name: "Soğuk Gazlı Kola 🥤", description: "Susuzluğunu -50 giderir.", cost: 8, currency: "gold" },
+        { id: "speed_potion", name: "Yıldırım Hız İksiri ⚡", description: "Karakterini kalıcı olarak hızlandırır.", cost: 120, currency: "gold" }
+      ],
+      "Eşya Satıcısı": [
+        { id: "hoverboard", name: "Altın Hoverboard 🛹", description: "Zeminde uçarak kayabileceğin altın kaykay.", cost: 180, currency: "gold" },
+        { id: "crown", name: "VIP Altın Kral Tacı 👑", description: "Kafanda parıldayan asil altın kral tacı.", cost: 40, currency: "gem" },
+        { id: "wings", name: "Melek Kanatları 🪽", description: "Sırtına takabileceğin devasa beyaz kanatlar.", cost: 150, currency: "gold" },
+        { id: "cape", name: "Süper Kahraman Pelerini 🧣", description: "Rüzgarda asilce dalgalanan kırmızı pelerin.", cost: 80, currency: "gold" },
+        { id: "sword", name: "Neon Enerji Kılıcı ⚔️", description: "Eline alabileceğin parlayan mavi ışın kılıcı.", cost: 130, currency: "gold" }
+      ]
+    };
+
+    function openNpcShop(npcType) {
+      const shopList = npcShopItems[npcType] || [];
+      let html = "";
+      shopList.forEach(item => {
+        const isOwned = state.ownedItems.includes(item.id);
+        const isEquipped = isItemEquipped(item.id);
+        
+        let btnText = "";
+        let btnColor = "linear-gradient(135deg, #10b981, #059669)"; // Green buy button
+        
+        const isConsumable = ["apple_food", "health_potion", "cola_drink"].includes(item.id);
+
+        if (isConsumable) {
+          btnText = `Al (${item.cost} ${item.currency === 'gold' ? '🪙' : '💎'})`;
+        } else if (item.id === "speed_potion") {
+          if (state.speedUpgrade) {
+            btnText = "Aktif ⚡";
+            btnColor = "linear-gradient(135deg, #64748b, #475569)"; // Grey disabled
+          } else {
+            btnText = `Al (${item.cost} 🪙)`;
+          }
+        } else {
+          // Wearable or vehicle
+          if (!isOwned) {
+            btnText = `Satın Al (${item.cost} ${item.currency === 'gold' ? '🪙' : '💎'})`;
+          } else {
+            if (isEquipped) {
+              btnText = "Çıkar ❌";
+              btnColor = "linear-gradient(135deg, #ef4444, #dc2626)"; // Red unequip button
+            } else {
+              btnText = "Donat ✅";
+              btnColor = "linear-gradient(135deg, #3b82f6, #2563eb)"; // Blue equip button
+            }
+          }
+        }
+
+        html += `
+          <div class="shop-item" style="background: rgba(15, 23, 42, 0.75); border: 2px solid ${isEquipped ? '#10b981' : '#334155'}; border-radius:14px; padding:12px; margin-bottom:12px; display:flex; justify-content:space-between; align-items:center; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1);">
+            <div style="text-align: left; max-width: 65%;">
+              <div style="font-weight:bold; font-size:14px; color:#f8fafc;">${item.name}</div>
+              <div style="font-size:11px; color:#94a3b8; margin-top:2px; line-height: 1.3;">${item.description}</div>
+            </div>
+            <button class="auth-btn" onclick="interactNpcShopItem('${item.id}', '${npcType}')" style="min-width:105px; padding:8px 12px; font-size:11px; margin:0; border-radius:10px; font-weight:bold; background: ${btnColor}; color: white; border: none; cursor: pointer; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+              ${btnText}
+            </button>
+          </div>
+        `;
+      });
+      
+      document.getElementById('npc-shop-items').innerHTML = html;
+      document.getElementById('npc-shop-title').innerText = npcType;
+      document.getElementById('npc-shop-subtitle').innerText = `🛒 ${npcType} tezgahındaki harika ürünlere göz at!`;
+      document.getElementById('modal-npc-shop').classList.remove('hidden');
+    }
+
+    function closeNpcShop() {
+      document.getElementById('modal-npc-shop').classList.add('hidden');
+    }
+
+    function isItemEquipped(itemId) {
+      if (itemId === 'hoverboard') return state.hoverboardUpgrade;
+      if (itemId === 'crown') return state.crownUpgrade;
+      return state.character.accessories[itemId];
+    }
+
+    function interactNpcShopItem(itemId, npcType) {
+      const shopList = npcShopItems[npcType];
+      const item = shopList.find(i => i.id === itemId);
+      if (!item) return;
+
+      const isConsumable = ["apple_food", "health_potion", "cola_drink"].includes(itemId);
+
+      if (isConsumable) {
+        if (item.currency === 'gold' && state.gold < item.cost) return showToast("❌ Yetersiz Altın!");
+        if (item.currency === 'gem' && state.gems < item.cost) return showToast("❌ Yetersiz Elmas!");
+
+        if (item.currency === 'gold') state.gold -= item.cost;
+        if (item.currency === 'gem') state.gems -= item.cost;
+
+        document.getElementById('gold-val').innerText = state.gold;
+        document.getElementById('gem-val').innerText = state.gems;
+
+        if (itemId === "apple_food") {
+          eatApple();
+        } else if (itemId === "health_potion") {
+          state.hp = 100;
+          updateSurvivalHUD();
+          showToast("❤️ Şifa Can İksiri İçildi! Can fulllendi.");
+        } else if (itemId === "cola_drink") {
+          state.thirst = Math.min(100, state.thirst + 50);
+          updateSurvivalHUD();
+          showToast("🥤 Kola İçildi! Susuzluk giderildi.");
+        }
+
+        saveState();
+        triggerVibration();
+        openNpcShop(npcType);
+        return;
+      }
+
+      if (itemId === "speed_potion") {
+        if (state.speedUpgrade) {
+          showToast("Bu yükseltmeye zaten sahipsin!");
+          return;
+        }
+        if (state.gold < item.cost) return showToast("❌ Yetersiz Altın!");
+        state.gold -= item.cost;
+        state.speedUpgrade = true;
+        document.getElementById('gold-val').innerText = state.gold;
+        showToast("⚡ Kalıcı Yıldırım Hız İksiri Aktifleşti!");
+        saveState();
+        triggerVibration();
+        openNpcShop(npcType);
+        return;
+      }
+
+      // Non-consumables
+      const alreadyOwned = state.ownedItems.includes(itemId);
+
+      if (!alreadyOwned) {
+        if (item.currency === 'gold' && state.gold < item.cost) return showToast("❌ Yetersiz Altın!");
+        if (item.currency === 'gem' && state.gems < item.cost) return showToast("❌ Yetersiz Elmas!");
+
+        if (item.currency === 'gold') state.gold -= item.cost;
+        if (item.currency === 'gem') state.gems -= item.cost;
+
+        document.getElementById('gold-val').innerText = state.gold;
+        document.getElementById('gem-val').innerText = state.gems;
+
+        state.ownedItems.push(itemId);
+        showToast(`🎉 ${item.name} Satın Alındı!`);
+        equipNpcShopItem(itemId, true);
+      } else {
+        const currentlyEquipped = isItemEquipped(itemId);
+        equipNpcShopItem(itemId, !currentlyEquipped);
+      }
+
+      saveState();
+      triggerVibration();
+      openNpcShop(npcType);
+    }
+
+    function equipNpcShopItem(itemId, equip) {
+      if (itemId === 'hoverboard') {
+        state.hoverboardUpgrade = equip;
+        toggleHoverboard3D(equip);
+        showToast(equip ? "🛹 Altın Kaykay Donatıldı!" : "🛹 Altın Kaykay Çıkarıldı!");
+      } else if (itemId === 'crown') {
+        state.crownUpgrade = equip;
+        toggleCrown3D(equip);
+        showToast(equip ? "👑 VIP Kral Tacı Donatıldı!" : "👑 VIP Kral Tacı Çıkarıldı!");
+      } else {
+        state.character.accessories[itemId] = equip;
+        update3DCharacterOutfit();
+        const label = document.getElementById('acc-item-' + itemId);
+        if (label) label.innerText = equip ? "Çıkar" : "Seç"; // sync wardrobe menu if open
+        const name = itemId === 'hat' ? 'Şapka' : itemId === 'hair' ? 'Anime Saçı' : itemId === 'headphones' ? 'Kulaklık' : itemId === 'halo' ? 'Hale' : itemId === 'wings' ? 'Kanat' : itemId === 'cape' ? 'Pelerin' : 'Işık Kılıcı';
+        showToast(equip ? `👑 ${name} Donatıldı!` : `👑 ${name} Çıkarıldı!`);
+      }
+    }
+
+    // =============================================================
+    // MODERN SOCIAL & CREATIVE ENGINE (UPDATE 9 FEATURES)
+    // =============================================================
+
+    // 1. SOLID COLLISION BOUNDARIES
+    function checkWorldCollisions(pos, oldPos) {
+      if (state.insideBuilding !== null) {
+        // Clamp inside indoor room boundary box of 15.2 x 15.2 (meters)
+        const limit = 7.5;
+        if (pos.x < -limit) pos.x = -limit;
+        if (pos.x > limit) pos.x = limit;
+        if (pos.z < -limit) pos.z = -limit;
+        if (pos.z > limit) pos.z = limit;
+        return;
+      }
+
+      // Outdoor buildings box boundaries
+      const colliders = [
+        // Skyscrapers
+        { minX: -47.8, maxX: -36.2, minZ: -47.8, maxZ: -36.2 }, // Merto Holding
+        { minX: -25.3, maxX: -14.7, minZ: -53.3, maxZ: -42.7 }, // PK XD Tower
+        { minX: -54.3, maxX: -41.7, minZ: -26.3, maxZ: -13.7 }, // Cyber Plaza
+
+        // Residential Villas
+        { minX: -34.3, maxX: -25.7, minZ: 40.7, maxZ: 49.3 }, // Bubblegum Villa
+        { minX: -4.3, maxX: 4.3, minZ: 45.7, maxZ: 54.3 }, // Sunny Cottage
+        { minX: 25.7, maxX: 34.3, minZ: 40.7, maxZ: 49.3 }, // Ocean Bungalow
+
+        // Shopping Street Stands
+        { minX: 28.2, maxX: 35.8, minZ: -23.3, maxZ: -16.7 }, // Aksesuar Shop
+        { minX: 34.2, maxX: 41.8, minZ: -3.3, maxZ: 3.3 },   // Yiyecek Shop
+        { minX: 28.2, maxX: 35.8, minZ: 16.7, maxZ: 23.3 }    // Eşya Shop
+      ];
+
+      for (let c of colliders) {
+        if (pos.x >= c.minX && pos.x <= c.maxX && pos.z >= c.minZ && pos.z <= c.maxZ) {
+          // Slide along collision boundary axes
+          const dxMin = Math.abs(pos.x - c.minX);
+          const dxMax = Math.abs(pos.x - c.maxX);
+          const dzMin = Math.abs(pos.z - c.minZ);
+          const dzMax = Math.abs(pos.z - c.maxZ);
+          
+          const minD = Math.min(dxMin, dxMax, dzMin, dzMax);
+
+          if (minD === dxMin) {
+            pos.x = c.minX;
+          } else if (minD === dxMax) {
+            pos.x = c.maxX;
+          } else if (minD === dzMin) {
+            pos.z = c.minZ;
+          } else {
+            pos.z = c.maxZ;
+          }
+        }
+      }
+    }
+
+    // 2. DOOR ENTER/EXIT CODES
+    const BUILDING_DOORS = [
+      { name: "Bubblegum Villa", x: -30, z: 49, isHouse: true },
+      { name: "Sunny Cottage", x: 0, z: 54, isHouse: true },
+      { name: "Ocean Bungalow", x: 30, z: 49, isHouse: true },
+      { name: "Merto Holding Plaza", x: -42, z: -36.5, isHouse: false },
+      { name: "PK XD Tower", x: -20, z: -43, isHouse: false },
+      { name: "Cyber Plaza", x: -48, z: -14, isHouse: false }
+    ];
+
+    let currentIndoorRoom = null;
+
+    function enterBuilding(buildingName) {
+      if (state.insideBuilding !== null) return;
+      
+      showToast(`🚪 ${buildingName} içine giriliyor...`);
+      triggerVibration();
+
+      // Record outdoor coordinates to teleport back to
+      state.outdoorPos = {
+        x: playerGroup.position.x,
+        y: playerGroup.position.y,
+        z: playerGroup.position.z,
+        rotY: playerGroup.rotation.y
+      };
+
+      state.insideBuilding = buildingName;
+
+      // Hide outdoor elements and show indoor room
+      outdoorGroup.visible = false;
+      
+      // Build indoor room elements
+      buildIndoorRoom(buildingName);
+
+      // Teleport player inside the room
+      playerGroup.position.set(0, 0.5, -4);
+      playerGroup.rotation.y = 0;
+      velocity.set(0, 0, 0);
+
+      // Adjust camera and sky lighting for cozy indoor vibes
+      scene.background = new THREE.Color('#0f172a'); // Cozy dark background outside windows
+      scene.fog.color = new THREE.Color('#0f172a');
+
+      // Update HUD buttons
+      updateIndoorHUD();
+    }
+
+    function exitBuilding() {
+      if (state.insideBuilding === null) return;
+      
+      showToast(`🚪 Dışarı çıkılıyor...`);
+      triggerVibration();
+
+      // Destroy indoor room elements cleanly
+      destroyIndoorRoom();
+
+      // Toggle visibility
+      outdoorGroup.visible = true;
+      state.insideBuilding = null;
+
+      // Teleport back near the door
+      const out = state.outdoorPos || { x: 0, y: 5, z: 10, rotY: 0 };
+      playerGroup.position.set(out.x, out.y, out.z);
+      playerGroup.rotation.y = out.rotY || 0;
+      velocity.set(0, 0, 0);
+
+      // Restore outdoors background
+      if (state.isSurvival) {
+        scene.background = new THREE.Color('#03000a');
+        scene.fog.color = new THREE.Color('#03000a');
+      } else {
+        scene.background = new THREE.Color('#a5f3fc');
+        scene.fog.color = new THREE.Color('#a5f3fc');
+      }
+
+      // Reset HUD buttons
+      updateIndoorHUD();
+    }
+
+    function updateIndoorHUD() {
+      const decorBtn = document.getElementById('btn-edit-house');
+      if (decorBtn) {
+        // Show edit house button only if inside home villas
+        const isHouse = ["Bubblegum Villa", "Sunny Cottage", "Ocean Bungalow"].includes(state.insideBuilding);
+        decorBtn.style.display = isHouse ? "block" : "none";
+      }
+    }
+
+    function checkEnterExitPrompts() {
+      const promptBtn = document.getElementById('btn-door-prompt');
+      if (!promptBtn) return;
+
+      if (state.insideBuilding === null) {
+        // Check outdoors near doors
+        let nearDoor = null;
+        let minDist = 3.5;
+        
+        BUILDING_DOORS.forEach(door => {
+          const dx = playerGroup.position.x - door.x;
+          const dz = playerGroup.position.z - door.z;
+          const dist = Math.sqrt(dx*dx + dz*dz);
+          if (dist < minDist) {
+            minDist = dist;
+            nearDoor = door;
+          }
+        });
+
+        if (nearDoor) {
+          promptBtn.innerHTML = `🚪 İçeri Gir: <b>${nearDoor.name}</b>`;
+          promptBtn.style.display = "block";
+          promptBtn.onclick = function() {
+            enterBuilding(nearDoor.name);
+          };
+        } else {
+          promptBtn.style.display = "none";
+        }
+      } else {
+        // Indoors: door is at (0, 0, 7.8)
+        const dx = playerGroup.position.x - 0;
+        const dz = playerGroup.position.z - 7.5;
+        const dist = Math.sqrt(dx*dx + dz*dz);
+        if (dist < 3.0) {
+          promptBtn.innerHTML = `🚪 Dışarı Çık: <b>${state.insideBuilding}</b>`;
+          promptBtn.style.display = "block";
+          promptBtn.onclick = function() {
+            exitBuilding();
+          };
+        } else {
+          promptBtn.style.display = "none";
+        }
+      }
+    }
+
+    // 3. 3D INDOOR ROOM GENERATOR
+    let decoratedFurnitureMeshes = [];
+
+    function buildIndoorRoom(name) {
+      destroyIndoorRoom(); // clean check
+      
+      currentIndoorRoom = new THREE.Group();
+      indoorGroup.add(currentIndoorRoom);
+      indoorGroup.visible = true;
+
+      // Floor (16x16 size)
+      const floorGeo = new THREE.BoxGeometry(16, 0.2, 16);
+      const floorColor = name.includes("Bubblegum") ? '#fbcfe8' : name.includes("Sunny") ? '#fef08a' : name.includes("Ocean") ? '#bae6fd' : '#cbd5e1';
+      const floorMat = new THREE.MeshStandardMaterial({ color: floorColor, roughness: 0.8 });
+      const floor = new THREE.Mesh(floorGeo, floorMat);
+      floor.position.y = -0.1;
+      floor.receiveShadow = true;
+      currentIndoorRoom.add(floor);
+
+      // Back wall with door
+      const wallMat = new THREE.MeshStandardMaterial({ color: '#f1f5f9', roughness: 0.9 });
+      const wallBackL = new THREE.Mesh(new THREE.BoxGeometry(7, 6, 0.4), wallMat);
+      wallBackL.position.set(-4.5, 3, 8);
+      currentIndoorRoom.add(wallBackL);
+
+      const wallBackR = new THREE.Mesh(new THREE.BoxGeometry(7, 6, 0.4), wallMat);
+      wallBackR.position.set(4.5, 3, 8);
+      currentIndoorRoom.add(wallBackR);
+
+      const wallBackTop = new THREE.Mesh(new THREE.BoxGeometry(2, 2.5, 0.4), wallMat);
+      wallBackTop.position.set(0, 4.75, 8);
+      currentIndoorRoom.add(wallBackTop);
+
+      // Cozy door mesh inside
+      const insideDoor = new THREE.Mesh(new THREE.BoxGeometry(1.8, 3.5, 0.2), new THREE.MeshStandardMaterial({ color: '#78350f' }));
+      insideDoor.position.set(0, 1.75, 7.9);
+      currentIndoorRoom.add(insideDoor);
+
+      // Other 3 wall panels
+      const wallFront = new THREE.Mesh(new THREE.BoxGeometry(16, 6, 0.4), wallMat);
+      wallFront.position.set(0, 3, -8);
+      currentIndoorRoom.add(wallFront);
+
+      const wallLeft = new THREE.Mesh(new THREE.BoxGeometry(0.4, 6, 16), wallMat);
+      wallLeft.position.set(-8, 3, 0);
+      currentIndoorRoom.add(wallLeft);
+
+      const wallRight = new THREE.Mesh(new THREE.BoxGeometry(0.4, 6, 16), wallMat);
+      wallRight.position.set(8, 3, 0);
+      currentIndoorRoom.add(wallRight);
+
+      // Cozy ceiling light
+      const lampGeo = new THREE.SphereGeometry(0.5, 16, 16);
+      const lampMat = new THREE.MeshBasicMaterial({ color: '#fef08a' });
+      const bulb = new THREE.Mesh(lampGeo, lampMat);
+      bulb.position.set(0, 5.5, 0);
+      currentIndoorRoom.add(bulb);
+
+      const indoorLight = new THREE.PointLight('#fef08a', 1.2, 25);
+      indoorLight.position.set(0, 5.2, 0);
+      indoorLight.castShadow = true;
+      currentIndoorRoom.add(indoorLight);
+
+      // Load decorated items
+      const decList = state.houseDecorations[name] || [];
+      decList.forEach((item, index) => {
+        spawnDecoratedFurniture3D(item, index);
+      });
+    }
+
+    function destroyIndoorRoom() {
+      if (currentIndoorRoom) {
+        // Dispose geometries and materials cleanly for solid memory performance
+        currentIndoorRoom.traverse(c => {
+          if (c.isMesh) {
+            c.geometry.dispose();
+            if (Array.isArray(c.material)) c.material.forEach(m => m.dispose());
+            else c.material.dispose();
+          }
+        });
+        indoorGroup.remove(currentIndoorRoom);
+        currentIndoorRoom = null;
+      }
+      decoratedFurnitureMeshes = [];
+      indoorGroup.visible = false;
+    }
+
+    // 4. FURNITURE SPRAWNER
+    function spawnDecoratedFurniture3D(item, index) {
+      const furnitureGroup = new THREE.Group();
+      furnitureGroup.position.set(item.x, 0.05, item.z);
+      furnitureGroup.rotation.y = item.rot || 0;
+      furnitureGroup.userData = { index: index, itemId: item.itemId };
+
+      const baseMat = new THREE.MeshStandardMaterial({ color: item.color || '#3b82f6', roughness: 0.5 });
+
+      // Build specific visual structures based on furniture type
+      if (item.type === 'sofa') {
+        // Seat cushion
+        const seat = new THREE.Mesh(new THREE.BoxGeometry(1.8, 0.4, 1.0), baseMat);
+        seat.position.y = 0.2;
+        furnitureGroup.add(seat);
+        // Backrest
+        const back = new THREE.Mesh(new THREE.BoxGeometry(1.8, 0.8, 0.3), baseMat);
+        back.position.set(0, 0.6, -0.35);
+        furnitureGroup.add(back);
+        // Armrests
+        const armL = new THREE.Mesh(new THREE.BoxGeometry(0.3, 0.6, 1.0), baseMat);
+        armL.position.set(-0.9, 0.3, 0);
+        furnitureGroup.add(armL);
+        const armR = armL.clone(); armR.position.x = 0.9;
+        furnitureGroup.add(armR);
+      } else if (item.type === 'pc') {
+        // Table
+        const desk = new THREE.Mesh(new THREE.BoxGeometry(2.0, 0.8, 1.0), new THREE.MeshStandardMaterial({ color: '#78350f' }));
+        desk.position.y = 0.4;
+        furnitureGroup.add(desk);
+        // RGB PC Tower
+        const tower = new THREE.Mesh(new THREE.BoxGeometry(0.3, 0.6, 0.5), new THREE.MeshStandardMaterial({ color: '#111827', metalness: 0.8 }));
+        tower.position.set(0.7, 0.9, 0.1);
+        furnitureGroup.add(tower);
+        // Glowing Neon Monitor
+        const screen = new THREE.Mesh(new THREE.BoxGeometry(1.2, 0.6, 0.1), new THREE.MeshBasicMaterial({ color: '#00f0ff' }));
+        screen.position.set(0, 1.1, -0.1);
+        furnitureGroup.add(screen);
+        const keyboard = new THREE.Mesh(new THREE.BoxGeometry(0.8, 0.05, 0.3), new THREE.MeshStandardMaterial({ color: '#1f2937' }));
+        keyboard.position.set(0, 0.825, 0.2);
+        furnitureGroup.add(keyboard);
+      } else if (item.type === 'tv') {
+        // Stand
+        const stand = new THREE.Mesh(new THREE.BoxGeometry(2.4, 0.4, 0.8), new THREE.MeshStandardMaterial({ color: '#1e293b' }));
+        stand.position.y = 0.2;
+        furnitureGroup.add(stand);
+        // Huge Screen
+        const screen = new THREE.Mesh(new THREE.BoxGeometry(2.2, 1.2, 0.1), new THREE.MeshBasicMaterial({ color: '#101827' }));
+        screen.position.set(0, 1.0, 0);
+        furnitureGroup.add(screen);
+        // Floating emoji glow decal on tv
+        const innerScreen = new THREE.Mesh(new THREE.BoxGeometry(2.0, 1.0, 0.05), new THREE.MeshBasicMaterial({ color: '#ef4444' }));
+        innerScreen.position.set(0, 1.0, 0.04);
+        furnitureGroup.add(innerScreen);
+      } else if (item.type === 'lamp') {
+        // Pole
+        const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.05, 1.8), new THREE.MeshStandardMaterial({ color: '#cbd5e1', metalness: 0.8 }));
+        pole.position.y = 0.9;
+        furnitureGroup.add(pole);
+        // Hearts glowing bulb
+        const shade = new THREE.Mesh(new THREE.SphereGeometry(0.35, 12, 12), new THREE.MeshBasicMaterial({ color: '#ec4899' }));
+        shade.position.y = 1.9;
+        furnitureGroup.add(shade);
+        // Lamp light
+        const light = new THREE.PointLight('#ec4899', 1.0, 8);
+        light.position.set(0, 1.9, 0);
+        furnitureGroup.add(light);
+      } else if (item.type === 'catbed') {
+        const ring = new THREE.Mesh(new THREE.TorusGeometry(0.6, 0.2, 8, 24), baseMat);
+        ring.rotation.x = Math.PI/2;
+        ring.position.y = 0.15;
+        furnitureGroup.add(ring);
+        const cushion = new THREE.Mesh(new THREE.CylinderGeometry(0.5, 0.5, 0.1, 16), new THREE.MeshStandardMaterial({ color: '#ffffff' }));
+        cushion.position.y = 0.1;
+        furnitureGroup.add(cushion);
+      } else if (item.type === 'bed') {
+        // Bed base
+        const base = new THREE.Mesh(new THREE.BoxGeometry(1.6, 0.4, 2.2), new THREE.MeshStandardMaterial({ color: '#78350f' }));
+        base.position.set(0, 0.2, 0);
+        furnitureGroup.add(base);
+        // Mattress
+        const mat = new THREE.Mesh(new THREE.BoxGeometry(1.5, 0.3, 2.0), new THREE.MeshStandardMaterial({ color: '#f8fafc' }));
+        mat.position.set(0, 0.4, -0.05);
+        furnitureGroup.add(mat);
+        // Pillows
+        const pillow = new THREE.Mesh(new THREE.BoxGeometry(1.2, 0.15, 0.4), baseMat);
+        pillow.position.set(0, 0.55, -0.75);
+        furnitureGroup.add(pillow);
+      } else if (item.type === 'dj') {
+        // DJ Deck desk
+        const desk = new THREE.Mesh(new THREE.BoxGeometry(2.2, 0.9, 1.0), new THREE.MeshStandardMaterial({ color: '#111827', metalness: 0.9 }));
+        desk.position.y = 0.45;
+        furnitureGroup.add(desk);
+        // Dual Turn tables
+        const discL = new THREE.Mesh(new THREE.CylinderGeometry(0.35, 0.35, 0.05, 12), new THREE.MeshStandardMaterial({ color: '#111', roughness: 0.2 }));
+        discL.position.set(-0.5, 0.925, 0);
+        furnitureGroup.add(discL);
+        const discR = discL.clone(); discR.position.x = 0.5;
+        furnitureGroup.add(discR);
+        // EQ Glowing lights
+        const eq = new THREE.Mesh(new THREE.BoxGeometry(1.8, 0.4, 0.05), new THREE.MeshBasicMaterial({ color: '#10b981' }));
+        eq.position.set(0, 0.45, 0.51);
+        furnitureGroup.add(eq);
+      } else {
+        // Statue or Dragon
+        const pedestal = new THREE.Mesh(new THREE.BoxGeometry(0.8, 0.4, 0.8), new THREE.MeshStandardMaterial({ color: '#cbd5e1', metalness: 0.9 }));
+        pedestal.position.y = 0.2;
+        furnitureGroup.add(pedestal);
+        const dragon = new THREE.Mesh(new THREE.DodecahedronGeometry(0.35, 1), new THREE.MeshStandardMaterial({ color: '#f59e0b', metalness: 0.8, roughness: 0.1 }));
+        dragon.position.y = 0.75;
+        furnitureGroup.add(dragon);
+      }
+
+      currentIndoorRoom.add(furnitureGroup);
+      decoratedFurnitureMeshes.push(furnitureGroup);
+    }
+
+    // 5. DECORATION CONTROLS
+    const FURNITURE_CATALOG = [
+      { id: "f_sofa", name: "Sarı Pofuduk Koltuk 🛋️", cost: 35, type: "sofa", emoji: "🛋️", color: "#facc15" },
+      { id: "f_pc", name: "VIP Gamer Masası 🖥️", cost: 95, type: "pc", emoji: "🖥️", color: "#10b981" },
+      { id: "f_tv", name: "Dev Plazma TV 📺", cost: 65, type: "tv", emoji: "📺", color: "#3b82f6" },
+      { id: "f_lamp", name: "Neon Kalp Lamba 💖", cost: 20, type: "lamp", emoji: "💖", color: "#ec4899" },
+      { id: "f_catbed", name: "Minnoş Kedi Yatağı 🐱", cost: 25, type: "catbed", emoji: "🐱", color: "#f43f5e" },
+      { id: "f_bed", name: "Lüks Kral Yatağı 🛏️", cost: 120, type: "bed", emoji: "🛏️", color: "#8b5cf6" },
+      { id: "f_dj", name: "Sihirli DJ Kabini 🎧", cost: 175, type: "dj", emoji: "🎧", color: "#06b6d4" },
+      { id: "f_dragon", name: "Altın Ejderha Heykeli 🐉", cost: 10, type: "dragon", emoji: "🐉", color: "#f59e0b", currency: "gem" }
+    ];
+
+    let isEditingFurniture = false;
+    let currentEditingFurniture = null;
+
+    function toggleFurnitureEditMode() {
+      if (state.insideBuilding === null) return;
+      
+      isEditingFurniture = !isEditingFurniture;
+      const dock = document.getElementById('hud-decorator-dock');
+      const exitBtn = document.getElementById('btn-exit-decor');
+
+      if (isEditingFurniture) {
+        dock.classList.remove('hidden');
+        if (exitBtn) exitBtn.classList.remove('hidden');
+        showToast("🛠️ Ev Düzenleme Modu Aktifleşti!");
+        populateDecoratorCatalog();
+        
+        // Auto select first/closest or newly spawned item
+        selectFirstFurnitureForEdit();
+      } else {
+        dock.classList.add('hidden');
+        if (exitBtn) exitBtn.classList.add('hidden');
+        showToast("✅ Düzenleme Modu Kapatıldı.");
+        if (placingMesh) {
+          currentIndoorRoom.remove(placingMesh);
+          placingMesh = null;
+        }
+        currentEditingFurniture = null;
+      }
+    }
+
+    function populateDecoratorCatalog() {
+      let html = "";
+      FURNITURE_CATALOG.forEach(item => {
+        html += `
+          <div class="decor-catalog-item" onclick="selectFurnitureToBuy('${item.id}')" style="flex-shrink:0; width:100px; background:rgba(30,41,59,0.9); border:2px solid #a855f7; border-radius:12px; padding:6px; display:flex; flex-direction:column; align-items:center; cursor:pointer; gap:4px;">
+            <div style="font-size:24px;">${item.emoji}</div>
+            <div style="font-size:10px; font-weight:600; text-align:center; white-space:nowrap; text-overflow:ellipsis; overflow:hidden; width:100%;">${item.name.split(' ')[0]}</div>
+            <div style="font-size:11px; font-weight:bold; color:#facc15;">${item.cost} ${item.currency === 'gem' ? '💎' : '🪙'}</div>
+          </div>
+        `;
+      });
+      document.getElementById('decor-catalog-list').innerHTML = html;
+    }
+
+    function selectFurnitureToBuy(itemId) {
+      const item = FURNITURE_CATALOG.find(i => i.id === itemId);
+      if (!item) return;
+
+      // Check funds
+      if (item.currency === 'gem') {
+        if (state.gems < item.cost) return showToast("❌ Yetersiz Elmas!");
+        state.gems -= item.cost;
+        document.getElementById('gem-val').innerText = state.gems;
+      } else {
+        if (state.gold < item.cost) return showToast("❌ Yetersiz Altın!");
+        state.gold -= item.cost;
+        document.getElementById('gold-val').innerText = state.gold;
+      }
+
+      showToast(`🎉 ${item.name} Satın Alındı!`);
+      triggerVibration();
+
+      // Create new decoration state object
+      const newDecor = {
+        itemId: item.id,
+        type: item.type,
+        emoji: item.emoji,
+        color: item.color,
+        x: 0,
+        z: 0,
+        rot: 0
+      };
+
+      const name = state.insideBuilding;
+      state.houseDecorations[name].push(newDecor);
+      
+      // Save state
+      saveState();
+
+      // Rebuild interior and select the newest item
+      buildIndoorRoom(name);
+      
+      // Select the last spawned index
+      const newIndex = state.houseDecorations[name].length - 1;
+      selectFurnitureIndex(newIndex);
+    }
+
+    function selectFirstFurnitureForEdit() {
+      const decs = state.houseDecorations[state.insideBuilding] || [];
+      if (decs.length > 0) {
+        selectFurnitureIndex(0);
+      }
+    }
+
+    function selectFurnitureIndex(index) {
+      const name = state.insideBuilding;
+      const decs = state.houseDecorations[name] || [];
+      if (index < 0 || index >= decs.length) return;
+
+      currentEditingFurniture = decs[index];
+      currentEditingFurniture.index = index;
+
+      // Draw active visual cursor marker on the 3D selected mesh
+      decoratedFurnitureMeshes.forEach(mesh => {
+        mesh.traverse(child => {
+          if (child.isMesh) {
+            // Highlighting outline effect
+            if (mesh.userData.index === index) {
+              child.material.emissive = new THREE.Color('#a855f7');
+              child.material.emissiveIntensity = 0.5;
+            } else {
+              child.material.emissive = new THREE.Color('#000000');
+              child.material.emissiveIntensity = 0;
+            }
+          }
+        });
+      });
+
+      showToast(`Seçilen: ${currentEditingFurniture.type.toUpperCase()} - Hareket ettir!`);
+    }
+
+    function moveFurniture(dx, dz) {
+      if (!currentEditingFurniture) return showToast("❌ Düzenlemek için bir eşya seç!");
+      
+      const f = currentEditingFurniture;
+      f.x += dx;
+      f.z += dz;
+
+      // Clamp inside room
+      f.x = Math.max(-7.0, Math.min(7.0, f.x));
+      f.z = Math.max(-7.0, Math.min(7.0, f.z));
+
+      // Re-render
+      const name = state.insideBuilding;
+      buildIndoorRoom(name);
+      selectFurnitureIndex(f.index);
+    }
+
+    function rotateFurniture() {
+      if (!currentEditingFurniture) return showToast("❌ Düzenlemek için bir eşya seç!");
+      
+      const f = currentEditingFurniture;
+      f.rot = (f.rot || 0) + Math.PI / 4; // Rotate 45 degrees
+
+      const name = state.insideBuilding;
+      buildIndoorRoom(name);
+      selectFurnitureIndex(f.index);
+    }
+
+    function deleteFurniture() {
+      if (!currentEditingFurniture) return showToast("❌ Silmek için bir eşya seç!");
+      
+      const f = currentEditingFurniture;
+      const name = state.insideBuilding;
+      
+      // Delete from list
+      state.houseDecorations[name].splice(f.index, 1);
+      currentEditingFurniture = null;
+
+      saveState();
+      buildIndoorRoom(name);
+      selectFirstFurnitureForEdit();
+      showToast("🗑️ Eşya Kaldırıldı.");
+    }
+
+    // 6. PROCEDURAL CUSTOM WARDROBE (TASARIM ATÖLYESİ)
+    let currentDesignCategory = 'tshirt';
+    let currentDesignPattern = 'solid';
+    let currentDesignPrimaryColor = '#ec4899';
+    let currentDesignDecal = '';
+
+    const CREATIVE_COLORS = [
+      { hex: '#f43f5e', name: 'Pembe' },
+      { hex: '#3b82f6', name: 'Mavi' },
+      { hex: '#a855f7', name: 'Mor' },
+      { hex: '#eab308', name: 'Sarı' },
+      { hex: '#22c55e', name: 'Yeşil' },
+      { hex: '#f97316', name: 'Turuncu' },
+      { hex: '#ef4444', name: 'Kırmızı' },
+      { hex: '#06b6d4', name: 'Siyan' },
+      { hex: '#84cc16', name: 'Lime' },
+      { hex: '#14b8a6', name: 'Turkuaz' },
+      { hex: '#cbd5e1', name: 'Gümüş' },
+      { hex: '#facc15', name: 'Altın' },
+      { hex: '#ffffff', name: 'Beyaz' },
+      { hex: '#0f172a', name: 'Gece Mavisi' },
+      { hex: '#6366f1', name: 'Çivit' }
+    ];
+
+    function initDesignStudio() {
+      // Draw colors list
+      let colorHtml = "";
+      CREATIVE_COLORS.forEach((col, index) => {
+        const isSel = col.hex === currentDesignPrimaryColor ? 'border: 3px solid white; transform: scale(1.1);' : '';
+        colorHtml += `
+          <div onclick="setDesignColor('${col.hex}', this)" style="flex-shrink:0; width:28px; height:28px; border-radius:50%; background:${col.hex}; cursor:pointer; box-shadow:0 2px 5px rgba(0,0,0,0.2); ${isSel}" title="${col.name}"></div>
+        `;
+      });
+      const cList = document.getElementById('design-colors-list');
+      if (cList) cList.innerHTML = colorHtml;
+    }
+
+    function setDesignCategory(cat, el) {
+      currentDesignCategory = cat;
+      // update visuals
+      document.querySelectorAll('.design-slot-item').forEach(x => {
+        if (x.id.startsWith('design-cat-')) x.classList.remove('selected');
+      });
+      el.classList.add('selected');
+    }
+
+    function setDesignPattern(pat, el) {
+      currentDesignPattern = pat;
+      // update visuals
+      const list = document.getElementById('design-patterns-list').children;
+      for (let x of list) {
+        x.classList.remove('selected');
+      }
+      el.classList.add('selected');
+    }
+
+    function setDesignColor(hex, el) {
+      currentDesignPrimaryColor = hex;
+      initDesignStudio(); // re-draw borders
+    }
+
+    function setDesignDecal(decal, el) {
+      currentDesignDecal = decal;
+      // update visuals
+      document.querySelectorAll('.design-decal-item').forEach(x => x.classList.remove('selected'));
+      el.classList.add('selected');
+    }
+
+    function craftProceduralItem() {
+      if (state.gold < 15) return showToast("❌ Üretmek için 15 Altına ihtiyacın var!");
+
+      state.gold -= 15;
+      document.getElementById('gold-val').innerText = state.gold;
+
+      const uid = "custom_" + Math.random().toString(36).substring(2, 7);
+      
+      const newGarment = {
+        id: uid,
+        category: currentDesignCategory,
+        pattern: currentDesignPattern,
+        color1: currentDesignPrimaryColor,
+        decal: currentDesignDecal,
+        name: `Özel ${currentDesignCategory.toUpperCase()} - ${currentDesignPattern}`
+      };
+
+      state.customPermutations.push(newGarment);
+      
+      // Auto-Equip right away!
+      if (currentDesignCategory === 'tshirt') {
+        state.character.customTshirt = newGarment;
+      } else if (currentDesignCategory === 'pants') {
+        state.character.customPants = newGarment;
+      } else if (currentDesignCategory === 'shoes') {
+        state.character.customShoesColor = currentDesignPrimaryColor;
+      }
+
+      saveState();
+      update3DCharacterOutfit();
+
+      showToast(`🎉 15 Altına Harika Bir Kıyafet Ürettin ve Hemen Donandın!`);
+      triggerVibration();
+
+      // Refresh standard shop layout if active
+      if (document.getElementById('modal-npc-shop').classList.contains('hidden') === false) {
+        openNpcShop("Aksesuar Satıcısı");
+      }
+    }
+
+    // 7. SPEECH BUBBLE PROJECTOR
+    function updateSpeechBubblesProjector() {
+      const activeBubbles = document.querySelectorAll('.speech-bubble-3d');
+      if (activeBubbles.length === 0) return;
+
+      const tempV = new THREE.Vector3();
+      activeBubbles.forEach(bubble => {
+        const charId = bubble.dataset.charId;
+        let charGroup = null;
+
+        if (charId === 'player') {
+          charGroup = playerGroup;
+        } else {
+          // Find among NPC list
+          const friend = friends3D.find(f => f.name === charId);
+          if (friend) charGroup = friend;
+        }
+
+        if (charGroup) {
+          tempV.copy(charGroup.position);
+          tempV.y += 3.8; // Position nicely above head
+
+          // Project to screen space coordinates
+          tempV.project(camera);
+
+          // Convert to CSS screen coordinates
+          const x = (tempV.x * 0.5 + 0.5) * window.innerWidth;
+          const y = (tempV.y * -0.5 + 0.5) * window.innerHeight;
+
+          // Check if behind camera
+          if (tempV.z > 1) {
+            bubble.style.display = 'none';
+          } else {
+            bubble.style.display = 'block';
+            bubble.style.left = `${x}px`;
+            bubble.style.top = `${y}px`;
+          }
+        } else {
+          bubble.remove(); // char left or deleted
+        }
+      });
+    }
+
+    function triggerSpeechBubble(charId, text) {
+      // Clear any existing bubble for this char
+      const existing = document.getElementById(`bubble-${charId}`);
+      if (existing) existing.remove();
+
+      const container = document.body;
+      const bubble = document.createElement('div');
+      bubble.id = `bubble-${charId}`;
+      bubble.className = 'speech-bubble-3d';
+      bubble.dataset.charId = charId;
+      bubble.innerHTML = `
+        <div class="speech-bubble-tail"></div>
+        <span>${text}</span>
+      `;
+      container.appendChild(bubble);
+
+      // Auto fadeout after 4.5 seconds
+      setTimeout(() => {
+        const el = document.getElementById(`bubble-${charId}`);
+        if (el) {
+          el.style.opacity = '0';
+          el.style.transform = 'translate(-50%, -100%) scale(0.8)';
+          setTimeout(() => el.remove(), 400);
+        }
+      }, 4500);
+    }
+
+    // 8. CHAT & VOICE HUB
+    const SIMULATED_MESSAGES = [
+      "Selam kanka! Yeni kıyafetin çok havalı duruyor! 😎",
+      "Sihirli Gökyüzü Portalından aşağı süzülmek müthiş!",
+      "Parkuru bitirip 500 canı kazandınız mı kankalar?",
+      "Kim benim evime gelip parti yapmak ister? 🍕🛋️",
+      "Tasarım Atölyesinde 15 altına siber çizgililer ürettim!",
+      "Şehir meydanında buluşalım arkadaşlar!",
+      "Oda linkini atıyorum hemen katılın!",
+      "Hız İksirini Yiyecek Satıcısından aldım fırtına gibiyim ⚡"
+    ];
+
+    let placingMesh = null;
+
+    function initChatAndVoiceControls() {
+      // Register Text Chat Enter Action
+      const chatInput = document.getElementById('chat-input-bar');
+      if (chatInput) {
+        chatInput.addEventListener('keypress', function(e) {
+          if (e.key === 'Enter') {
+            sendUserChatMessage();
+          }
+        });
+      }
+
+      // Simulate active lobbies chatting randomly every 12-16 seconds
+      setInterval(() => {
+        if (friends3D.length > 0 && Math.random() < 0.7) {
+          // Select random active friend
+          const f = friends3D[Math.floor(Math.random() * friends3D.length)];
+          const msg = SIMULATED_MESSAGES[Math.floor(Math.random() * SIMULATED_MESSAGES.length)];
+          
+          appendChatMessage(f.name, msg);
+          triggerSpeechBubble(f.name, msg);
+          triggerVibration();
+        }
+      }, 14000);
+    }
+
+    function sendUserChatMessage() {
+      const input = document.getElementById('chat-input-bar');
+      if (!input) return;
+      const text = input.value.trim();
+      if (!text) return;
+
+      input.value = "";
+      input.blur();
+
+      // Show locally
+      appendChatMessage("Sen", text);
+      triggerSpeechBubble("player", text);
+      triggerVibration();
+
+      // Simulated voice response or chatbot greeting
+      setTimeout(() => {
+        const replies = [
+          "Vay canına süper dedin kanka!",
+          "Katılıyorum kanka! 🤩",
+          "MertoPhone'dan MertoGram'a fırlat kanka bunu!",
+          "Haha harikasın! 🥳"
+        ];
+        if (friends3D.length > 0 && Math.random() < 0.6) {
+          const f = friends3D[Math.floor(Math.random() * friends3D.length)];
+          const rep = replies[Math.floor(Math.random() * replies.length)];
+          appendChatMessage(f.name, rep);
+          triggerSpeechBubble(f.name, rep);
+        }
+      }, 2000);
+    }
+
+    function appendChatMessage(sender, msg) {
+      const logs = document.getElementById('chat-logs-container');
+      if (!logs) return;
+
+      const item = document.createElement('div');
+      item.className = 'chat-log-line';
+      const isMe = sender === 'Sen';
+      const color = isMe ? '#c084fc' : '#38bdf8';
+      item.innerHTML = `
+        <span style="color: ${color}; font-weight: 800;">[${sender}]:</span>
+        <span style="color: #f8fafc;">${msg}</span>
+      `;
+      logs.appendChild(item);
+      logs.scrollTop = logs.scrollHeight;
+    }
+
+    // Glowing Interactive simulated voice chat toggle
+    let isVoiceActive = false;
+    function toggleVoiceChat() {
+      isVoiceActive = !isVoiceActive;
+      const btn = document.getElementById('btn-trigger-voice');
+      const wave = document.getElementById('voice-pulse-wave');
+
+      if (isVoiceActive) {
+        btn.classList.add('active');
+        wave.classList.remove('hidden');
+        showToast("🎙️ Mikrofon Aktifleşti! Sesli odadasın!");
+        triggerVibration();
+
+        // Spawn voice ring radar beneath player feet in loops
+        start3DVoiceRingSimulation();
+      } else {
+        btn.classList.remove('active');
+        wave.classList.add('hidden');
+        showToast("🔇 Mikrofon Kapatıldı.");
+      }
+    }
+
+    function start3DVoiceRingSimulation() {
+      if (!isVoiceActive) return;
+
+      // Spawn paraticle sound ripple
+      const ringGeo = new THREE.RingGeometry(0.1, 0.2, 16);
+      const ringMat = new THREE.MeshBasicMaterial({ color: '#a855f7', side: THREE.DoubleSide, transparent: true, opacity: 0.8 });
+      const ringMesh = new THREE.Mesh(ringGeo, ringMat);
+      ringMesh.rotation.x = Math.PI / 2;
+      ringMesh.position.copy(playerGroup.position);
+      ringMesh.position.y = 0.1;
+      scene.add(ringMesh);
+
+      // Simple animation step
+      let scale = 1.0;
+      const anim = () => {
+        scale += 0.15;
+        ringMesh.scale.set(scale, scale, 1.0);
+        ringMesh.material.opacity = 1.0 - (scale / 6.0);
+        
+        if (scale < 6.0 && isVoiceActive) {
+          requestAnimationFrame(anim);
+        } else {
+          scene.remove(ringMesh);
+          ringMesh.geometry.dispose();
+          ringMesh.material.dispose();
+        }
+      };
+      anim();
+
+      // Schedule next pulse
+      setTimeout(() => {
+        if (isVoiceActive) start3DVoiceRingSimulation();
+      }, 1500);
+    }
+
+    function openApp(appId) {
+      document.getElementById('phone-home').style.display = 'none';
+      const views = document.querySelectorAll('.app-view');
+      views.forEach(v => v.style.display = 'none');
+      
+      const activeApp = document.getElementById('app-' + appId);
+      if (activeApp) {
+        if (appId === 'design') {
+          activeApp.style.display = 'flex';
+          initDesignStudio();
+        } else {
+          activeApp.style.display = 'block';
+        }
+      }
+    }
+
+    function backToHome() {
+      const views = document.querySelectorAll('.app-view');
+      views.forEach(v => v.style.display = 'none');
+      document.getElementById('phone-home').style.display = 'flex';
+    }
+
+  </script>
+</body>
+</html>

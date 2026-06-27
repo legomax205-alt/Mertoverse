@@ -1,0 +1,6 @@
+{
+  "name": "PK XD Merto",
+  "description": "Üç boyutlu, pürüzsüz ve devasa Three.js WebGL tabanlı lüks bir PK XD tarzı arkadaş buluşma ve parkur oyunu.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

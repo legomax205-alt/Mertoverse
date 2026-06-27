@@ -1,0 +1,2403 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>PK XD Merto 3D</title>
+    <!-- Three.js Library -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <style>
+        * {
+            box-sizing: border-box;
+            user-select: none;
+            -webkit-user-select: none;
+            margin: 0;
+            padding: 0;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+        body, html {
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            background-color: #0b0c10;
+        }
+        #canvas-container {
+            width: 100%;
+            height: 100%;
+            position: absolute;
+            top: 0;
+            left: 0;
+            z-index: 1;
+        }
+        /* HUD overlay */
+        #hud-container {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 10;
+            pointer-events: none;
+        }
+        .interactive {
+            pointer-events: auto;
+        }
+        /* Top Indicators for Survival Mode */
+        #survival-bars {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            display: none;
+            flex-direction: column;
+            gap: 8px;
+            background: rgba(0,0,0,0.6);
+            padding: 12px;
+            border-radius: 12px;
+            border: 2px solid rgba(255,255,255,0.2);
+            backdrop-filter: blur(5px);
+        }
+        .status-bar-container {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            color: #fff;
+            font-weight: bold;
+            font-size: 14px;
+        }
+        .status-bar {
+            width: 120px;
+            height: 12px;
+            background: #444;
+            border-radius: 6px;
+            overflow: hidden;
+            border: 1px solid #222;
+        }
+        .status-fill {
+            height: 100%;
+            transition: width 0.3s ease;
+        }
+        #health-fill { background: #ff3366; width: 100%; }
+        #hunger-fill { background: #ffaa00; width: 100%; }
+        #thirst-fill { background: #00aaff; width: 100%; }
+
+        /* General currency indicator */
+        #currency-indicator {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            background: rgba(0,0,0,0.7);
+            border-radius: 16px;
+            padding: 8px 16px;
+            color: #fff;
+            font-weight: bold;
+            display: flex;
+            gap: 15px;
+            font-size: 16px;
+            border: 2px solid rgba(255,255,255,0.1);
+        }
+        .currency-item {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+        .currency-coin { color: #ffd700; }
+        .currency-gem { color: #00ffff; }
+
+        /* Floating screen control buttons (only 2 buttons: Phone & Emote) */
+        #control-buttons {
+            position: absolute;
+            bottom: 30px;
+            right: 30px;
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+            align-items: center;
+        }
+        .circle-btn {
+            width: 70px;
+            height: 70px;
+            border-radius: 50%;
+            border: 3px solid #fff;
+            color: white;
+            font-size: 32px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            box-shadow: 0 8px 16px rgba(0,0,0,0.3);
+            transition: transform 0.2s, background-color 0.2s;
+            background-color: rgba(255, 255, 255, 0.25);
+            backdrop-filter: blur(5px);
+        }
+        .circle-btn:active {
+            transform: scale(0.9);
+        }
+        #phone-btn {
+            background: linear-gradient(135deg, #a83279, #d38312);
+        }
+        #emote-btn {
+            background: linear-gradient(135deg, #11998e, #38ef7d);
+        }
+
+        /* Joystick for mobile movement */
+        #joystick-zone {
+            position: absolute;
+            bottom: 40px;
+            left: 40px;
+            width: 140px;
+            height: 140px;
+            background: rgba(255,255,255,0.15);
+            border-radius: 50%;
+            border: 2px solid rgba(255,255,255,0.3);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            backdrop-filter: blur(3px);
+        }
+        #joystick-handle {
+            width: 60px;
+            height: 60px;
+            background: #ffffff;
+            border-radius: 50%;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.5);
+            transition: transform 0.05s;
+        }
+
+        /* Emote bar pop-up */
+        #emote-popup {
+            position: absolute;
+            bottom: 115px;
+            right: 30px;
+            background: rgba(0,0,0,0.85);
+            border-radius: 16px;
+            padding: 10px;
+            display: none;
+            flex-direction: column;
+            gap: 10px;
+            border: 2px solid rgba(255,255,255,0.2);
+            animation: slideUp 0.25s forwards;
+        }
+        .emote-option {
+            width: 50px;
+            height: 50px;
+            border-radius: 12px;
+            background: rgba(255,255,255,0.15);
+            color: #fff;
+            font-size: 20px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: background 0.2s, transform 0.1s;
+        }
+        .emote-option:hover {
+            background: rgba(255,255,255,0.3);
+        }
+        .emote-option:active {
+            transform: scale(0.9);
+        }
+
+        /* Startup / Wardrobe panel overlay */
+        .overlay-panel {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 100;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background-color: rgba(11, 12, 16, 0.95);
+            backdrop-filter: blur(10px);
+            padding: 20px;
+        }
+        .glass-box {
+            background: rgba(255,255,255,0.08);
+            border: 1px solid rgba(255,255,255,0.15);
+            border-radius: 24px;
+            padding: 30px;
+            width: 100%;
+            max-width: 420px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.4);
+            color: #fff;
+            text-align: center;
+        }
+        .form-input {
+            width: 100%;
+            padding: 12px 16px;
+            margin: 10px 0;
+            border-radius: 12px;
+            border: 1px solid rgba(255,255,255,0.2);
+            background: rgba(0,0,0,0.3);
+            color: #fff;
+            font-size: 16px;
+            outline: none;
+        }
+        .form-input:focus {
+            border-color: #38ef7d;
+        }
+        .primary-btn {
+            width: 100%;
+            padding: 14px;
+            border-radius: 12px;
+            border: none;
+            background: linear-gradient(135deg, #11998e, #38ef7d);
+            color: white;
+            font-weight: bold;
+            font-size: 16px;
+            cursor: pointer;
+            margin-top: 15px;
+            box-shadow: 0 6px 15px rgba(56,239,125,0.3);
+            transition: transform 0.1s;
+        }
+        .primary-btn:active {
+            transform: scale(0.97);
+        }
+        .secondary-link {
+            color: #11998e;
+            font-size: 14px;
+            cursor: pointer;
+            margin-top: 15px;
+            display: inline-block;
+            text-decoration: underline;
+        }
+
+        /* Wardrobe Grid Styles */
+        .color-picker-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin: 12px 0;
+            background: rgba(255,255,255,0.05);
+            padding: 8px 12px;
+            border-radius: 10px;
+        }
+        .color-picker-input {
+            border: none;
+            width: 45px;
+            height: 30px;
+            background: transparent;
+            cursor: pointer;
+        }
+        .wardrobe-scroll {
+            max-height: 220px;
+            overflow-y: auto;
+            margin-top: 15px;
+            text-align: left;
+            padding-right: 5px;
+        }
+        .wardrobe-scroll::-webkit-scrollbar {
+            width: 6px;
+        }
+        .wardrobe-scroll::-webkit-scrollbar-thumb {
+            background: rgba(255,255,255,0.2);
+            border-radius: 3px;
+        }
+        .item-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 8px 10px;
+            background: rgba(255,255,255,0.05);
+            margin-bottom: 8px;
+            border-radius: 8px;
+            cursor: pointer;
+            border: 1px solid transparent;
+        }
+        .item-row.active {
+            border-color: #38ef7d;
+            background: rgba(56,239,125,0.15);
+        }
+
+        /* MertoPhone Styling (The virtual smartphone) */
+        #mertophone-container {
+            position: absolute;
+            top: 5%;
+            right: -380px; /* Slide out right default */
+            width: 350px;
+            height: 90%;
+            background: #1e1e24;
+            border-radius: 40px;
+            border: 6px solid #2d2d30;
+            box-shadow: -10px 10px 30px rgba(0,0,0,0.5);
+            z-index: 100;
+            transition: right 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+        }
+        #mertophone-container.active {
+            right: 20px;
+        }
+        .phone-notch {
+            width: 140px;
+            height: 25px;
+            background: #2d2d30;
+            margin: 0 auto;
+            border-bottom-left-radius: 15px;
+            border-bottom-right-radius: 15px;
+            position: absolute;
+            top: 0;
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 200;
+        }
+        .phone-screen {
+            width: 100%;
+            height: 100%;
+            padding: 30px 15px 15px 15px;
+            display: flex;
+            flex-direction: column;
+            color: #fff;
+            position: relative;
+        }
+        .phone-header {
+            display: flex;
+            justify-content: space-between;
+            font-size: 11px;
+            padding-bottom: 10px;
+            border-bottom: 1px solid rgba(255,255,255,0.1);
+            color: #aaa;
+        }
+        /* App Grid View */
+        .phone-app-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 15px;
+            margin-top: 30px;
+        }
+        .phone-app-icon {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            cursor: pointer;
+            transition: transform 0.2s;
+        }
+        .phone-app-icon:active {
+            transform: scale(0.9);
+        }
+        .app-img {
+            width: 60px;
+            height: 60px;
+            border-radius: 16px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 30px;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.3);
+            margin-bottom: 6px;
+        }
+        .app-label {
+            font-size: 11px;
+            font-weight: 500;
+            text-align: center;
+        }
+        /* Specific App Colors */
+        .app-color-mertogram { background: linear-gradient(45deg, #f09433, #e6683c, #dc2743, #cc2366, #bc1888); }
+        .app-color-invite { background: linear-gradient(135deg, #00c6ff, #0072ff); }
+        .app-color-market { background: linear-gradient(135deg, #f12711, #f5af19); }
+        .app-color-players { background: linear-gradient(135deg, #8a2387, #e94057, #f27121); }
+
+        /* Individual App Views */
+        .phone-app-window {
+            position: absolute;
+            top: 30px;
+            left: 100%;
+            width: 100%;
+            height: calc(100% - 30px);
+            background: #121214;
+            transition: left 0.3s ease;
+            z-index: 150;
+            display: flex;
+            flex-direction: column;
+            padding: 15px;
+        }
+        .phone-app-window.active {
+            left: 0;
+        }
+        .app-back-header {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding-bottom: 12px;
+            border-bottom: 1px solid rgba(255,255,255,0.1);
+            margin-bottom: 15px;
+        }
+        .back-btn {
+            font-size: 22px;
+            cursor: pointer;
+            padding: 5px;
+        }
+        .app-title {
+            font-size: 18px;
+            font-weight: bold;
+        }
+
+        /* MertoGram specific styling */
+        .mertogram-feed {
+            flex: 1;
+            overflow-y: auto;
+            margin-bottom: 15px;
+            padding-right: 5px;
+        }
+        .mertogram-post {
+            background: rgba(255,255,255,0.05);
+            border-radius: 12px;
+            padding: 10px;
+            margin-bottom: 15px;
+            border: 1px solid rgba(255,255,255,0.08);
+        }
+        .post-header {
+            display: flex;
+            justify-content: space-between;
+            font-size: 13px;
+            font-weight: bold;
+            margin-bottom: 8px;
+            color: #38ef7d;
+        }
+        .post-image-placeholder {
+            width: 100%;
+            height: 140px;
+            background: #232329;
+            border-radius: 8px;
+            margin-bottom: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 12px;
+            color: #aaa;
+            object-fit: cover;
+        }
+        .post-caption {
+            font-size: 13px;
+            margin-bottom: 8px;
+            color: #eee;
+        }
+        .post-actions {
+            display: flex;
+            gap: 15px;
+            font-size: 13px;
+            color: #aaa;
+        }
+        .post-action-btn {
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 4px;
+        }
+        .post-action-btn:hover { color: #fff; }
+        .follower-badge {
+            background: rgba(255, 215, 0, 0.15);
+            border: 1px solid #ffd700;
+            border-radius: 8px;
+            padding: 6px 10px;
+            font-size: 12px;
+            color: #ffd700;
+            text-align: center;
+            margin-bottom: 15px;
+            font-weight: bold;
+        }
+
+        /* Marketplace & Players inside app styling */
+        .market-item-card {
+            background: rgba(255,255,255,0.04);
+            border: 1px solid rgba(255,255,255,0.1);
+            border-radius: 12px;
+            padding: 12px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+        .market-item-title {
+            font-weight: bold;
+            font-size: 14px;
+        }
+        .market-item-desc {
+            font-size: 11px;
+            color: #aaa;
+        }
+        .market-buy-btn {
+            padding: 6px 12px;
+            background: #ffd700;
+            color: #000;
+            font-weight: bold;
+            border-radius: 8px;
+            border: none;
+            cursor: pointer;
+            font-size: 12px;
+        }
+        .market-buy-btn:disabled {
+            background: #444;
+            color: #888;
+            cursor: default;
+        }
+
+        .players-list {
+            flex: 1;
+            overflow-y: auto;
+            margin-bottom: 15px;
+        }
+        .player-list-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background: rgba(255,255,255,0.05);
+            padding: 10px 12px;
+            border-radius: 10px;
+            margin-bottom: 8px;
+        }
+        .teleport-btn {
+            background: #ff3366;
+            color: white;
+            border: none;
+            padding: 6px 12px;
+            border-radius: 8px;
+            font-weight: bold;
+            cursor: pointer;
+            font-size: 12px;
+        }
+
+        /* Simple toast notification */
+        #toast {
+            position: absolute;
+            top: 25px;
+            left: 50%;
+            transform: translateX(-50%) translateY(-100px);
+            background: rgba(0,0,0,0.85);
+            border: 1px solid #38ef7d;
+            border-radius: 30px;
+            padding: 10px 24px;
+            color: white;
+            font-weight: bold;
+            font-size: 14px;
+            z-index: 1000;
+            transition: transform 0.3s ease;
+            box-shadow: 0 10px 20px rgba(0,0,0,0.3);
+            pointer-events: none;
+        }
+        #toast.active {
+            transform: translateX(-50%) translateY(0);
+        }
+
+        /* Animations */
+        @keyframes slideUp {
+            from { transform: translateY(20px); opacity: 0; }
+            to { transform: translateY(0); opacity: 1; }
+        }
+
+        /* Shopkeeper Panel */
+        #shop-panel {
+            display: none;
+        }
+    </style>
+</head>
+<body>
+
+    <!-- 3D WebGL Canvas Holder -->
+    <div id="canvas-container"></div>
+
+    <!-- Toast UI Notifications -->
+    <div id="toast">Bildirim!</div>
+
+    <!-- UI Overlay / HUD -->
+    <div id="hud-container">
+        <!-- Survival Metrics -->
+        <div id="survival-bars">
+            <div class="status-bar-container">
+                <span>❤️ Can</span>
+                <div class="status-bar"><div id="health-fill" class="status-fill"></div></div>
+            </div>
+            <div class="status-bar-container">
+                <span>🍖 Satiety</span>
+                <div class="status-bar"><div id="hunger-fill" class="status-fill"></div></div>
+            </div>
+            <div class="status-bar-container">
+                <span>💧 Thirst</span>
+                <div class="status-bar"><div id="thirst-fill" class="status-fill"></div></div>
+            </div>
+        </div>
+
+        <!-- Currencies top right -->
+        <div id="currency-indicator">
+            <div class="currency-item">🪙 <span id="coins-count">250</span></div>
+            <div class="currency-item">💎 <span id="gems-count">20</span></div>
+        </div>
+
+        <!-- Floating Joystick Touch Area (Mobile control) -->
+        <div id="joystick-zone" class="interactive">
+            <div id="joystick-handle"></div>
+        </div>
+
+        <!-- Action Control Buttons (Only Phone and Emote popups on HUD) -->
+        <div id="control-buttons" class="interactive">
+            <!-- Emote masked trigger button -->
+            <div id="emote-btn" class="circle-btn" onclick="toggleEmotePopup()">🎭</div>
+            <!-- Main Phone button -->
+            <div id="phone-btn" class="circle-btn" onclick="togglePhone()">📲</div>
+        </div>
+
+        <!-- Emote Overlay list -->
+        <div id="emote-popup" class="interactive">
+            <div class="emote-option" onclick="triggerEmote('dance')" title="Dans">💃</div>
+            <div class="emote-option" onclick="triggerEmote('wave')" title="Salla">👋</div>
+            <div class="emote-option" onclick="triggerEmote('backflip')" title="Takla">🤸</div>
+            <div class="emote-option" onclick="triggerEmote('robot')" title="Robot">🤖</div>
+        </div>
+    </div>
+
+    <!-- STAGE 1: Login panel -->
+    <div id="login-overlay" class="overlay-panel">
+        <div class="glass-box">
+            <h2 style="margin-bottom: 10px; font-size: 26px; color: #ffd700; text-shadow: 0 2px 4px rgba(0,0,0,0.5);">PK XD METRO</h2>
+            <p style="font-size: 14px; color: #ccc; margin-bottom: 20px;">Lütfen Oyuna Giriş Yapın</p>
+            
+            <div id="login-form">
+                <input type="text" id="username" class="form-input" placeholder="Kullanıcı Adı veya E-posta" value="OyuncuMerto">
+                <input type="password" id="password" class="form-input" placeholder="Şifre" value="123456">
+                <button class="primary-btn" onclick="showWardrobeSetup()">GİRİŞ YAP</button>
+                <span class="secondary-link" onclick="toggleForgotPassword(true)">Şifremi Unuttum</span>
+            </div>
+
+            <div id="forgot-form" style="display: none;">
+                <p style="font-size: 13px; color: #ffaa00; margin-bottom: 15px;">Lütfen kayıtlı e-posta adresinizi giriniz.</p>
+                <input type="email" id="reset-email" class="form-input" placeholder="E-posta Adresi">
+                <button class="primary-btn" onclick="resetPassword()">SIFRLAMA LINKI GÖNDER</button>
+                <span class="secondary-link" onclick="toggleForgotPassword(false)">Giriş Ekranına Dön</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- STAGE 2: Wardrobe & Customization panel on startup -->
+    <div id="wardrobe-overlay" class="overlay-panel" style="display: none;">
+        <div class="glass-box" style="max-width: 480px;">
+            <h2 style="color: #00ffff; font-size: 22px; margin-bottom: 15px;">Gardırop Kurulumu</h2>
+            
+            <!-- RGB Customization row -->
+            <div class="color-picker-row">
+                <span>Tişört Rengi (RGB)</span>
+                <input type="color" id="color-shirt" class="color-picker-input" value="#ff3366" onchange="updateColors()">
+            </div>
+            <div class="color-picker-row">
+                <span>Pantolon Rengi (RGB)</span>
+                <input type="color" id="color-pants" class="color-picker-input" value="#00aaff" onchange="updateColors()">
+            </div>
+            <div class="color-picker-row">
+                <span>Ten Rengi (RGB)</span>
+                <input type="color" id="color-skin" class="color-picker-input" value="#ffdbac" onchange="updateColors()">
+            </div>
+
+            <!-- Accessories lists -->
+            <div class="wardrobe-scroll">
+                <div class="item-row" id="acc-hair" onclick="toggleAccessory('hair')">
+                    <span>Anime Saçı 💇</span>
+                    <span class="status-lbl">Ekle</span>
+                </div>
+                <div class="item-row" id="acc-hat" onclick="toggleAccessory('hat')">
+                    <span>Şapka 🧢</span>
+                    <span class="status-lbl">Ekle</span>
+                </div>
+                <div class="item-row" id="acc-headphones" onclick="toggleAccessory('headphones')">
+                    <span>Kulaklık 🎧</span>
+                    <span class="status-lbl">Ekle</span>
+                </div>
+                <div class="item-row" id="acc-halo" onclick="toggleAccessory('halo')">
+                    <span>Melek Halesi 👼</span>
+                    <span class="status-lbl">Ekle</span>
+                </div>
+                <div class="item-row" id="acc-wings" onclick="toggleAccessory('wings')">
+                    <span>Kanatlar 🦋</span>
+                    <span class="status-lbl">Ekle</span>
+                </div>
+                <div class="item-row" id="acc-cape" onclick="toggleAccessory('cape')">
+                    <span>Pelerin 🧥</span>
+                    <span class="status-lbl">Ekle</span>
+                </div>
+                <div class="item-row" id="acc-sword" onclick="toggleAccessory('sword')">
+                    <span>Kılıç ⚔️</span>
+                    <span class="status-lbl">Ekle</span>
+                </div>
+            </div>
+
+            <div style="display:flex; justify-content:space-between; gap:10px; margin-top:15px;">
+                <button class="primary-btn" style="background:#ff9f43; flex:1; margin-top:0;" onclick="selectMode('peaceful')">Peaceful</button>
+                <button class="primary-btn" style="background:#ee5253; flex:1; margin-top:0;" onclick="selectMode('survival')">Survival</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- MertoPhone Smartphone UI -->
+    <div id="mertophone-container" class="interactive">
+        <div class="phone-notch"></div>
+        <div class="phone-screen">
+            <!-- Header bar -->
+            <div class="phone-header">
+                <span id="phone-time">13:37</span>
+                <span>📶 5G 🔋 100%</span>
+            </div>
+
+            <!-- Home Screen View with Icons -->
+            <div id="phone-home" style="display: block; height:100%;">
+                <h3 style="margin-top:20px; text-align:center; font-size:18px; font-weight:bold; background: linear-gradient(to right, #ffd700, #ff007f); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">MertoPhone</h3>
+                
+                <div class="phone-app-grid">
+                    <div class="phone-app-icon" onclick="openApp('mertogram')">
+                        <div class="app-img app-color-mertogram">📸</div>
+                        <div class="app-label">MertoGram</div>
+                    </div>
+                    <div class="phone-app-icon" onclick="openApp('invite')">
+                        <div class="app-img app-color-invite">🔗</div>
+                        <div class="app-label">Davet Linki</div>
+                    </div>
+                    <div class="phone-app-icon" onclick="openApp('market')">
+                        <div class="app-img app-color-market">🛍️</div>
+                        <div class="app-label">City Market</div>
+                    </div>
+                    <div class="phone-app-icon" onclick="openApp('players')">
+                        <div class="app-img app-color-players">👥</div>
+                        <div class="app-label">Oda Arkadaşları</div>
+                    </div>
+                </div>
+
+                <!-- Fast close phone inside app UI -->
+                <button class="primary-btn" style="background: rgba(255,255,255,0.1); color: #fff; box-shadow: none; margin-top: 150px;" onclick="togglePhone()">Kapat</button>
+            </div>
+
+            <!-- App Window: MertoGram -->
+            <div id="app-mertogram" class="phone-app-window">
+                <div class="app-back-header">
+                    <div class="back-btn" onclick="closeApp()">&larr;</div>
+                    <div class="app-title">MertoGram 📸</div>
+                </div>
+                <div class="follower-badge">
+                    👥 Takipçi: <span id="mgram-followers">0</span> <span id="mcert-badge" style="display:none;">🎖️ MertoC</span>
+                </div>
+                <!-- Posting panel -->
+                <div style="background: rgba(255,255,255,0.06); padding: 10px; border-radius: 10px; margin-bottom: 12px;">
+                    <input type="text" id="photo-caption" class="form-input" style="margin:0 0 8px 0;" placeholder="Açıklama yaz...">
+                    <div style="display: flex; gap: 8px;">
+                        <button class="primary-btn" style="margin:0; padding:10px 5px; flex:1; font-size:12px;" onclick="takePhotoAndPost()">📸 FOTO PAYLAŞ</button>
+                        <button class="primary-btn" style="margin:0; padding:10px 5px; flex:1; font-size:12px; background: #9b59b6;" onclick="uploadFromGallery()">📁 GALERİ YÜKLE</button>
+                    </div>
+                </div>
+                <!-- Interactive feed -->
+                <div class="mertogram-feed" id="mgram-feed-container">
+                    <!-- Dynamic posts appear here -->
+                </div>
+            </div>
+
+            <!-- App Window: Davet Linki -->
+            <div id="app-invite" class="phone-app-window">
+                <div class="app-back-header">
+                    <div class="back-btn" onclick="closeApp()">&larr;</div>
+                    <div class="app-title">Arkadaş Daveti 🔗</div>
+                </div>
+                <div style="text-align: center; margin-top: 40px;">
+                    <div style="font-size: 50px; margin-bottom: 20px;">🏰</div>
+                    <p style="font-size: 14px; color: #ccc; margin-bottom: 30px; line-height: 1.4;">Arkadaşlarını bu odaya davet etmek için alttaki davet linkini kopyalayabilirsin.</p>
+                    <button class="primary-btn" onclick="copyInviteLink()">Oda Davet Linkini Kopyala</button>
+                </div>
+            </div>
+
+            <!-- App Window: City Market -->
+            <div id="app-market" class="phone-app-window">
+                <div class="app-back-header">
+                    <div class="back-btn" onclick="closeApp()">&larr;</div>
+                    <div class="app-title">City Market 🛍️</div>
+                </div>
+                <div style="overflow-y: auto; flex: 1;">
+                    <div class="market-item-card">
+                        <div>
+                            <div class="market-item-title">Kalıcı Hız ⚡</div>
+                            <div class="market-item-desc">Karakterinize kalıcı süper koşu hızı kazandırır.</div>
+                        </div>
+                        <button class="market-buy-btn" id="buy-speed" onclick="buyMarketItem('speed', 150, 'coin')">150 🪙</button>
+                    </div>
+                    <div class="market-item-card">
+                        <div>
+                            <div class="market-item-title">Altın Kaykay 🛹</div>
+                            <div class="market-item-desc">Göz kamaştırıcı bir Hoverboard canlandırır.</div>
+                        </div>
+                        <button class="market-buy-btn" id="buy-hoverboard" onclick="buyMarketItem('hoverboard', 350, 'coin')">350 🪙</button>
+                    </div>
+                    <div class="market-item-card">
+                        <div>
+                            <div class="market-item-title">VIP Kral Tacı 👑</div>
+                            <div class="market-item-desc">Özel parıltılı 3D Kraliyet Tacı kazandırır.</div>
+                        </div>
+                        <button class="market-buy-btn" id="buy-crown" onclick="buyMarketItem('crown', 15, 'gem')">15 💎</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- App Window: Odadaki Oyuncular -->
+            <div id="app-players" class="phone-app-window">
+                <div class="app-back-header">
+                    <div class="back-btn" onclick="closeApp()">&larr;</div>
+                    <div class="app-title">Arkadaşlarım 👥</div>
+                </div>
+                <div style="background: rgba(255,255,255,0.06); padding: 10px; border-radius: 12px; margin-bottom: 12px;">
+                    <p style="font-size:11px; color:#aaa; margin-bottom:5px;">Odaya gerçek 3D modelle arkadaş ekle:</p>
+                    <div style="display: flex; gap: 8px;">
+                        <input type="text" id="friend-name-input" class="form-input" style="margin:0; flex:1;" placeholder="Arkadaş Adı (örn: Ayaz, Enes)">
+                        <button class="primary-btn" style="margin:0; width:auto; padding: 0 16px;" onclick="addNewFriend()">Ekle</button>
+                    </div>
+                </div>
+                <div class="players-list" id="friends-list-container">
+                    <!-- List of current added player models in the room -->
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Shop Stand Modal Dialog UI -->
+    <div id="shop-dialog" class="overlay-panel" style="display: none;">
+        <div class="glass-box">
+            <h3 id="shop-vendor-title" style="color: #ffd700; margin-bottom: 10px;">Market Standı</h3>
+            <p id="shop-vendor-desc" style="font-size: 14px; color: #ccc; margin-bottom: 20px;">Lütfen almak istediğiniz aksesuarı seçin.</p>
+            <div id="shop-items-container" style="display: flex; flex-direction: column; gap: 10px;"></div>
+            <button class="primary-btn" style="background:#555;" onclick="closeShopVendor()">KAPAT</button>
+        </div>
+    </div>
+
+    <!-- 3D Physics and Three.js Client Code -->
+    <script>
+        // Game state variables
+        let scene, camera, renderer;
+        let clock = new THREE.Clock();
+        
+        // Player properties
+        let playerObj;
+        let speedMultiplier = 1.0;
+        let baseSpeed = 8;
+        let playerVel = new THREE.Vector3();
+        let playerRotation = 0;
+        let keys = { w: false, s: false, a: false, d: false };
+        let isGrounded = true;
+        let playerAccessories = {
+            hair: false,
+            hat: false,
+            headphones: false,
+            halo: false,
+            wings: false,
+            cape: false,
+            sword: false,
+            hoverboard: false,
+            crown: false
+        };
+
+        // Customization colors (hex strings)
+        let shirtColorHex = '#ff3366';
+        let pantsColorHex = '#00aaff';
+        let skinColorHex = '#ffdbac';
+
+        // Accessory references inside 3D object for toggle visibility
+        let meshAccRefs = {};
+
+        // Game progression & stats
+        let coins = 250;
+        let gems = 20;
+        let followers = 0;
+        let reachedMertoC = false;
+        let gameMode = 'peaceful'; // peaceful, survival
+        let survivalStats = { health: 100, hunger: 100, thirst: 100 };
+
+        // Lists of dynamic objects in scene
+        let coinsList = [];
+        let trampolineMesh;
+        let skyPortalMesh;
+        let treeMeshes = [];
+        let appleMeshes = [];
+        let vendorMeshes = [];
+        let friendsList = [];
+        let zombiesList = [];
+        
+        // Touch Joystick logic variables
+        let touchStartPos = null;
+        let touchCurPos = null;
+        let joystickActive = false;
+        let moveDirection = new THREE.Vector3();
+
+        // Screen rotation drag logic
+        let touchRotateStart = null;
+        let cameraAngleX = 0;
+        let cameraAngleY = 0.2; // slight angle looking down
+
+        // Dynamic feed lists for MertoGram
+        let mertoGramPosts = [
+            {
+                user: "Ayaz_Gamer",
+                img: "https://images.unsplash.com/photo-1542751371-adc38448a05e?auto=format&fit=crop&w=400&q=80",
+                caption: "Yeni gökyüzü portalını denediniz mi? Havada süzülmek harika! ☁️",
+                likes: 312,
+                comments: ["Ben çoktan çıktım!", "Coins rekorum 50!"]
+            },
+            {
+                user: "Enes_PK",
+                img: "https://images.unsplash.com/photo-1511512578047-dfb367046420?auto=format&fit=crop&w=400&q=80",
+                caption: "Lüks şehir binaları güncellendi! MertoC rozeti için takip etmeyi unutmayın 💎",
+                likes: 421,
+                comments: ["Hemen oda davet linki gönder"]
+            }
+        ];
+
+        // System setup
+        window.addEventListener('load', () => {
+            // Update initial digital clocks
+            setInterval(() => {
+                let now = new Date();
+                let hrs = String(now.getHours()).padStart(2, '0');
+                let mins = String(now.getMinutes()).padStart(2, '0');
+                document.getElementById('phone-time').innerText = `${hrs}:${mins}`;
+            }, 1000);
+
+            // Populate initially loaded MertoGram feed
+            renderMertoGramFeed();
+        });
+
+        // Toggle Forgot Password view
+        function toggleForgotPassword(isForgot) {
+            document.getElementById('login-form').style.display = isForgot ? 'none' : 'block';
+            document.getElementById('forgot-form').style.display = isForgot ? 'block' : 'none';
+        }
+
+        // Simulating the password reset link
+        function resetPassword() {
+            let email = document.getElementById('reset-email').value;
+            if(!email) {
+                showToast("Lütfen geçerli bir e-posta girin!");
+                return;
+            }
+            showToast("Şifre sıfırlama e-postası başarıyla gönderildi!");
+            toggleForgotPassword(false);
+        }
+
+        // Show Wardrobe Customization view
+        function showWardrobeSetup() {
+            let usr = document.getElementById('username').value.trim();
+            if(!usr) {
+                showToast("Lütfen bir kullanıcı adı girin!");
+                return;
+            }
+            document.getElementById('login-overlay').style.display = 'none';
+            document.getElementById('wardrobe-overlay').style.display = 'flex';
+            
+            // Initialize 3D Engine right away in the background
+            init3DEngine();
+        }
+
+        // Select mode to play
+        function selectMode(mode) {
+            gameMode = mode;
+            document.getElementById('wardrobe-overlay').style.display = 'none';
+            document.getElementById('survival-bars').style.display = mode === 'survival' ? 'flex' : 'none';
+            
+            showToast(`${mode === 'survival' ? 'Hayatta Kalma (Survival)' : 'Barışçıl (Peaceful)'} Modu Seçildi!`);
+            
+            // Focus and start the rendering
+            clock.getDelta(); // reset clock
+            animate();
+
+            // Set up sound effect
+            playBeep(440, 150);
+            playBeep(523, 200);
+        }
+
+        // Toast notification helper
+        function showToast(text, isError = false) {
+            let toast = document.getElementById('toast');
+            toast.innerText = text;
+            toast.style.borderColor = isError ? '#ff3366' : '#38ef7d';
+            toast.classList.add('active');
+            setTimeout(() => {
+                toast.classList.remove('active');
+            }, 3000);
+        }
+
+        // Color setup and live update of character material colors
+        function updateColors() {
+            shirtColorHex = document.getElementById('color-shirt').value;
+            pantsColorHex = document.getElementById('color-pants').value;
+            skinColorHex = document.getElementById('color-skin').value;
+
+            if (playerObj) {
+                playerObj.traverse(child => {
+                    if (child.isMesh) {
+                        if (child.name === 'shirt') {
+                            child.material.color.set(shirtColorHex);
+                        } else if (child.name === 'pants') {
+                            child.material.color.set(pantsColorHex);
+                        } else if (child.name === 'skin') {
+                            child.material.color.set(skinColorHex);
+                        }
+                    }
+                });
+            }
+        }
+
+        // Toggle custom clothing accessory
+        function toggleAccessory(accName) {
+            playerAccessories[accName] = !playerAccessories[accName];
+            
+            let row = document.getElementById(`acc-${accName}`);
+            if(playerAccessories[accName]) {
+                row.classList.add('active');
+                row.querySelector('.status-lbl').innerText = 'Kaldır';
+            } else {
+                row.classList.remove('active');
+                row.querySelector('.status-lbl').innerText = 'Ekle';
+            }
+
+            // Toggle rendering visibility in scene
+            if(meshAccRefs[accName]) {
+                meshAccRefs[accName].visible = playerAccessories[accName];
+            }
+            playBeep(600, 50);
+        }
+
+        // Set up synth beep sound to avoid lagging from loading heavy .mp3 files
+        let audioCtx;
+        function playBeep(frequency = 440, duration = 100) {
+            try {
+                if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+                if (audioCtx.state === 'suspended') audioCtx.resume();
+                let osc = audioCtx.createOscillator();
+                let gain = audioCtx.createGain();
+                osc.connect(gain);
+                gain.connect(audioCtx.destination);
+                osc.frequency.setValueAtTime(frequency, audioCtx.currentTime);
+                gain.gain.setValueAtTime(0.15, audioCtx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + duration/1000);
+                osc.start();
+                osc.stop(audioCtx.currentTime + duration/1000);
+            } catch(e) {}
+        }
+
+        // 3D Three.js scene initializer
+        function init3DEngine() {
+            const container = document.getElementById('canvas-container');
+            const width = container.clientWidth;
+            const height = container.clientHeight;
+
+            // Scene, Camera, and Renderer setup
+            scene = new THREE.Scene();
+            scene.fog = new THREE.FogExp2(0x1a1a2e, 0.015);
+
+            camera = new THREE.PerspectiveCamera(60, width / height, 0.1, 1000);
+            
+            renderer = new THREE.WebGLRenderer({ antialias: true, preserveDrawingBuffer: true });
+            renderer.setSize(width, height);
+            renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+            renderer.setClearColor(0x1a1a2e);
+            renderer.shadowMap.enabled = true;
+            container.appendChild(renderer.domElement);
+
+            // Responsive window resizing
+            window.addEventListener('resize', () => {
+                const w = container.clientWidth;
+                const h = container.clientHeight;
+                camera.aspect = w / h;
+                camera.updateProjectionMatrix();
+                renderer.setSize(w, h);
+            });
+
+            // Lights
+            const ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
+            scene.add(ambientLight);
+
+            const hemiLight = new THREE.HemisphereLight(0xffffff, 0x444444, 0.4);
+            hemiLight.position.set(0, 200, 0);
+            scene.add(hemiLight);
+
+            const dirLight = new THREE.DirectionalLight(0xffffff, 0.8);
+            dirLight.position.set(40, 60, 20);
+            scene.add(dirLight);
+
+            // BUILD THE PK XD WORLD
+            buildPKXDWorld();
+
+            // Setup Touch controls and screen dragging events
+            setupInputControls();
+        }
+
+        // Main game loop
+        function animate() {
+            requestAnimationFrame(animate);
+
+            let delta = clock.getDelta();
+            if (delta > 0.1) delta = 0.1; // clamp lag
+
+            // Character movement physics
+            updatePlayerPhysics(delta);
+
+            // Update rotating animations of assets
+            updateDynamicAssets(delta);
+
+            // Survival mode depletion
+            if(gameMode === 'survival') {
+                updateSurvivalDepletion(delta);
+            }
+
+            // Teleport camera following
+            if(playerObj) {
+                // Smooth Camera tracking using LERP
+                let desiredCamX = playerObj.position.x - Math.sin(cameraAngleX) * 12;
+                let desiredCamZ = playerObj.position.z - Math.cos(cameraAngleX) * 12;
+                let desiredCamY = playerObj.position.y + 6;
+
+                camera.position.x += (desiredCamX - camera.position.x) * 0.1;
+                camera.position.y += (desiredCamY - camera.position.y) * 0.1;
+                camera.position.z += (desiredCamZ - camera.position.z) * 0.1;
+                
+                camera.lookAt(playerObj.position.x, playerObj.position.y + 1.5, playerObj.position.z);
+            }
+
+            renderer.render(scene, camera);
+        }
+
+        // Character 3D Model Constructor (PK XD Style)
+        function createCharacterMesh() {
+            const charGroup = new THREE.Group();
+
+            const skinMat = new THREE.MeshToonMaterial({ color: skinColorHex, name: 'skin' });
+            const shirtMat = new THREE.MeshToonMaterial({ color: shirtColorHex, name: 'shirt' });
+            const pantsMat = new THREE.MeshToonMaterial({ color: pantsColorHex, name: 'pants' });
+            const shoeMat = new THREE.MeshToonMaterial({ color: 0x222222 });
+            const accessoryMat = new THREE.MeshToonMaterial({ color: 0xffd700 });
+
+            // Body
+            const bodyGeo = new THREE.BoxGeometry(0.8, 1.0, 0.5);
+            const body = new THREE.Mesh(bodyGeo, shirtMat);
+            body.name = 'shirt';
+            body.position.y = 1.0;
+            charGroup.add(body);
+
+            // Head
+            const headGeo = new THREE.BoxGeometry(0.8, 0.8, 0.8);
+            const head = new THREE.Mesh(headGeo, skinMat);
+            head.name = 'skin';
+            head.position.y = 1.9;
+            charGroup.add(head);
+
+            // Facial expression/Eyes (textured with simple geometries)
+            const eyeGeo = new THREE.BoxGeometry(0.1, 0.15, 0.05);
+            const eyeMat = new THREE.MeshBasicMaterial({ color: 0x000000 });
+            const leftEye = new THREE.Mesh(eyeGeo, eyeMat);
+            leftEye.position.set(-0.2, 1.95, 0.41);
+            charGroup.add(leftEye);
+
+            const rightEye = leftEye.clone();
+            rightEye.position.x = 0.2;
+            charGroup.add(rightEye);
+
+            const smileGeo = new THREE.BoxGeometry(0.3, 0.06, 0.05);
+            const smile = new THREE.Mesh(smileGeo, eyeMat);
+            smile.position.set(0, 1.8, 0.41);
+            charGroup.add(smile);
+
+            // Pants / Pelvis area
+            const pelvisGeo = new THREE.BoxGeometry(0.82, 0.2, 0.52);
+            const pelvis = new THREE.Mesh(pelvisGeo, pantsMat);
+            pelvis.name = 'pants';
+            pelvis.position.y = 0.45;
+            charGroup.add(pelvis);
+
+            // Legs
+            const legGeo = new THREE.BoxGeometry(0.32, 0.6, 0.32);
+            const leftLeg = new THREE.Mesh(legGeo, pantsMat);
+            leftLeg.name = 'pants';
+            leftLeg.position.set(-0.2, 0.1, 0);
+            charGroup.add(leftLeg);
+
+            const rightLeg = leftLeg.clone();
+            rightLeg.position.x = 0.2;
+            charGroup.add(rightLeg);
+
+            // Shoes
+            const shoeGeo = new THREE.BoxGeometry(0.34, 0.15, 0.42);
+            const leftShoe = new THREE.Mesh(shoeGeo, shoeMat);
+            leftShoe.position.set(-0.2, -0.2, 0.05);
+            charGroup.add(leftShoe);
+
+            const rightShoe = leftShoe.clone();
+            rightShoe.position.x = 0.2;
+            charGroup.add(rightShoe);
+
+            // Arms
+            const armGeo = new THREE.BoxGeometry(0.24, 0.8, 0.24);
+            const leftArm = new THREE.Mesh(armGeo, shirtMat);
+            leftArm.name = 'shirt';
+            leftArm.position.set(-0.55, 1.0, 0);
+            charGroup.add(leftArm);
+
+            const rightArm = leftArm.clone();
+            rightArm.position.x = 0.55;
+            charGroup.add(rightArm);
+
+            // ACCESSORIES RENDERS (toggled by dynamic setup)
+            
+            // Hair (Anime hair block)
+            const hairGeo = new THREE.BoxGeometry(0.86, 0.3, 0.86);
+            const hairMat = new THREE.MeshToonMaterial({ color: 0x00ffff }); // Neon cyan hair
+            const hair = new THREE.Mesh(hairGeo, hairMat);
+            hair.position.y = 2.35;
+            charGroup.add(hair);
+            meshAccRefs['hair'] = hair;
+            hair.visible = false;
+
+            // Hat
+            const hatGeo = new THREE.BoxGeometry(0.9, 0.2, 0.9);
+            const visorGeo = new THREE.BoxGeometry(0.8, 0.05, 0.4);
+            const hat = new THREE.Group();
+            const hatBase = new THREE.Mesh(hatGeo, accessoryMat);
+            const hatVisor = new THREE.Mesh(visorGeo, accessoryMat);
+            hatVisor.position.set(0, -0.05, 0.5);
+            hat.add(hatBase, hatVisor);
+            hat.position.y = 2.35;
+            charGroup.add(hat);
+            meshAccRefs['hat'] = hat;
+            hat.visible = false;
+
+            // Headphones
+            const hpGroup = new THREE.Group();
+            const hpBand = new THREE.Mesh(new THREE.BoxGeometry(0.9, 0.1, 0.3), new THREE.MeshToonMaterial({ color: 0x111111 }));
+            const hpCupL = new THREE.Mesh(new THREE.BoxGeometry(0.15, 0.3, 0.3), accessoryMat);
+            const hpCupR = hpCupL.clone();
+            hpBand.position.y = 2.3;
+            hpCupL.position.set(-0.46, 1.9, 0);
+            hpCupR.position.set(0.46, 1.9, 0);
+            hpGroup.add(hpBand, hpCupL, hpCupR);
+            charGroup.add(hpGroup);
+            meshAccRefs['headphones'] = hpGroup;
+            hpGroup.visible = false;
+
+            // Halo (Angel Ring)
+            const haloGeo = new THREE.TorusGeometry(0.4, 0.06, 8, 24);
+            const haloMat = new THREE.MeshBasicMaterial({ color: 0xffff00 });
+            const halo = new THREE.Mesh(haloGeo, haloMat);
+            halo.rotation.x = Math.PI / 2;
+            halo.position.set(0, 2.7, 0);
+            charGroup.add(halo);
+            meshAccRefs['halo'] = halo;
+            halo.visible = false;
+
+            // Wings
+            const wingsGroup = new THREE.Group();
+            const wingGeo = new THREE.BoxGeometry(1.2, 0.6, 0.08);
+            const wingL = new THREE.Mesh(wingGeo, new THREE.MeshToonMaterial({ color: 0xffffff }));
+            wingL.position.set(-0.7, 1.1, -0.4);
+            wingL.rotation.y = -Math.PI / 6;
+            const wingR = wingL.clone();
+            wingR.position.x = 0.7;
+            wingR.rotation.y = Math.PI / 6;
+            wingsGroup.add(wingL, wingR);
+            charGroup.add(wingsGroup);
+            meshAccRefs['wings'] = wingsGroup;
+            wingsGroup.visible = false;
+
+            // Cape
+            const capeGeo = new THREE.BoxGeometry(0.7, 1.2, 0.08);
+            const cape = new THREE.Mesh(capeGeo, new THREE.MeshToonMaterial({ color: 0x9b59b6 }));
+            cape.position.set(0, 0.8, -0.32);
+            cape.rotation.x = Math.PI / 20;
+            charGroup.add(cape);
+            meshAccRefs['cape'] = cape;
+            cape.visible = false;
+
+            // Sword on back
+            const swordGroup = new THREE.Group();
+            const blade = new THREE.Mesh(new THREE.BoxGeometry(0.12, 1.3, 0.04), new THREE.MeshToonMaterial({ color: 0xcccccc }));
+            const crossguard = new THREE.Mesh(new THREE.BoxGeometry(0.4, 0.1, 0.08), accessoryMat);
+            const hilt = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.3, 0.08), new THREE.MeshToonMaterial({ color: 0x333333 }));
+            crossguard.position.y = -0.4;
+            hilt.position.y = -0.6;
+            swordGroup.add(blade, crossguard, hilt);
+            swordGroup.position.set(0.3, 1.1, -0.45);
+            swordGroup.rotation.z = Math.PI / 4;
+            swordGroup.rotation.y = Math.PI / 6;
+            charGroup.add(swordGroup);
+            meshAccRefs['sword'] = swordGroup;
+            swordGroup.visible = false;
+
+            // Hoverboard under feet
+            const hbGeo = new THREE.BoxGeometry(1.2, 0.1, 0.5);
+            const hbMat = new THREE.MeshToonMaterial({ color: 0xffd700, emissive: 0xffaa00, emissiveIntensity: 0.5 });
+            const hoverboard = new THREE.Mesh(hbGeo, hbMat);
+            hoverboard.position.y = -0.35;
+            charGroup.add(hoverboard);
+            meshAccRefs['hoverboard'] = hoverboard;
+            hoverboard.visible = false;
+
+            // VIP King Crown
+            const crownGroup = new THREE.Group();
+            const crownBase = new THREE.Mesh(new THREE.CylinderGeometry(0.35, 0.35, 0.15, 8), accessoryMat);
+            const crownSpike = new THREE.Mesh(new THREE.ConeGeometry(0.08, 0.25, 4), accessoryMat);
+            crownSpike.position.set(0, 0.2, 0.3);
+            crownGroup.add(crownBase, crownSpike);
+            const sp2 = crownSpike.clone(); sp2.position.set(0,0.2,-0.3); crownGroup.add(sp2);
+            const sp3 = crownSpike.clone(); sp3.position.set(0.3,0.2,0); crownGroup.add(sp3);
+            const sp4 = crownSpike.clone(); sp4.position.set(-0.3,0.2,0); crownGroup.add(sp4);
+            crownGroup.position.y = 2.45;
+            charGroup.add(crownGroup);
+            meshAccRefs['crown'] = crownGroup;
+            crownGroup.visible = false;
+
+            // Cast shadows
+            charGroup.traverse(child => {
+                if (child.isMesh) {
+                    child.castShadow = true;
+                    child.receiveShadow = true;
+                }
+            });
+
+            return charGroup;
+        }
+
+        // Build all environmental structures in the game
+        function buildPKXDWorld() {
+            // 1. Core Island (Round bottom, flat top)
+            const islandGeo = new THREE.CylinderGeometry(85, 90, 8, 32);
+            const islandMat = new THREE.MeshToonMaterial({ color: 0x4bcffa }); // vibrant cyan-blue surface
+            const mainIsland = new THREE.Mesh(islandGeo, islandMat);
+            mainIsland.position.y = -4;
+            mainIsland.receiveShadow = true;
+            scene.add(mainIsland);
+
+            // Add customizable colored floor paths / fields inside the main island
+            const citySquareGeo = new THREE.BoxGeometry(40, 0.1, 40);
+            const citySquareMat = new THREE.MeshToonMaterial({ color: 0x1dd1a1 }); // Green square park
+            const citySquare = new THREE.Mesh(citySquareGeo, citySquareMat);
+            citySquare.position.set(20, -0.1, 20);
+            scene.add(citySquare);
+
+            // 2. Giant Swimmable Blue Water surrounding the island
+            const waterGeo = new THREE.PlaneGeometry(1000, 1000);
+            const waterMat = new THREE.MeshToonMaterial({ 
+                color: 0x0fbcf9, 
+                opacity: 0.8, 
+                transparent: true,
+                side: THREE.DoubleSide
+            });
+            const water = new THREE.Mesh(waterGeo, waterMat);
+            water.rotation.x = -Math.PI / 2;
+            water.position.y = -7.5;
+            scene.add(water);
+
+            // 3. Sky Portal (Glowing, spinning, purple in the center of the main island)
+            const portalGroup = new THREE.Group();
+            const portalRingGeo = new THREE.TorusGeometry(3.5, 0.4, 8, 32);
+            const portalRingMat = new THREE.MeshBasicMaterial({ color: 0x8e44ad, transparent: true, opacity: 0.9 });
+            const portalRing = new THREE.Mesh(portalRingGeo, portalRingMat);
+            portalGroup.add(portalRing);
+
+            const coreGlowGeo = new THREE.CylinderGeometry(3.1, 3.1, 0.1, 16);
+            const coreGlowMat = new THREE.MeshBasicMaterial({ color: 0x9b59b6, transparent: true, opacity: 0.6, side: THREE.DoubleSide });
+            const coreGlow = new THREE.Mesh(coreGlowGeo, coreGlowMat);
+            coreGlow.rotation.x = Math.PI / 2;
+            portalGroup.add(coreGlow);
+
+            portalGroup.position.set(0, 3, 0); // Center of island
+            scene.add(portalGroup);
+            skyPortalMesh = portalGroup;
+
+            // Portal ground stand
+            const standGeo = new THREE.CylinderGeometry(5, 5.5, 1, 16);
+            const standMat = new THREE.MeshToonMaterial({ color: 0x34495e });
+            const stand = new THREE.Mesh(standGeo, standMat);
+            stand.position.set(0, 0.4, 0);
+            scene.add(stand);
+
+            // 4. Floating Sky Islands for the parkour and Gold Coins
+            const skyPositions = [
+                { x: 0, y: 35, z: -25, w: 10, h: 2, d: 10, color: 0xff5252 }, // Base sky platform
+                { x: -8, y: 38, z: -35, w: 4, h: 1, d: 4, color: 0xff793f },
+                { x: -16, y: 41, z: -40, w: 4, h: 1, d: 4, color: 0xffb142 },
+                { x: -24, y: 44, z: -32, w: 4, h: 1, d: 4, color: 0x218c74 },
+                { x: -32, y: 48, z: -20, w: 6, h: 1, d: 6, color: 0x33d9b2 }, // Checkpoint sky island
+                { x: -22, y: 52, z: -10, w: 3, h: 1, d: 3, color: 0x2c2c54 },
+                { x: -12, y: 55, z: -5, w: 3, h: 1, d: 3, color: 0x4700d8 },
+                { x: 0, y: 58, z: 0, w: 8, h: 2, d: 8, color: 0xff007f }  // Ultimate peak sky island
+            ];
+
+            skyPositions.forEach(p => {
+                const skyIslandGeo = new THREE.BoxGeometry(p.w, p.h, p.d);
+                const skyIslandMat = new THREE.MeshToonMaterial({ color: p.color });
+                const block = new THREE.Mesh(skyIslandGeo, skyIslandMat);
+                block.position.set(p.x, p.y, p.z);
+                scene.add(block);
+
+                // Add 1-2 floating gold coins above each sky island block
+                const coinCount = Math.floor(Math.random() * 2) + 1;
+                for(let i=0; i<coinCount; i++) {
+                    createFloatingCoin(p.x + (i*1.5 - (coinCount-1)*0.75), p.y + 2, p.z);
+                }
+            });
+
+            // 5. Trampoline (Jump Pad in the city)
+            const trampGroup = new THREE.Group();
+            const rimGeo = new THREE.CylinderGeometry(3.5, 3.5, 0.5, 16);
+            const rimMat = new THREE.MeshToonMaterial({ color: 0x2c3e50 });
+            const rim = new THREE.Mesh(rimGeo, rimMat);
+            rim.position.y = 0.25;
+            trampGroup.add(rim);
+
+            const bouncePadGeo = new THREE.CylinderGeometry(3.2, 3.2, 0.1, 16);
+            const bouncePadMat = new THREE.MeshToonMaterial({ color: 0x27ae60, emissive: 0x2ecc71, emissiveIntensity: 0.2 });
+            const bouncePad = new THREE.Mesh(bouncePadGeo, bouncePadMat);
+            bouncePad.position.y = 0.5;
+            trampGroup.add(bouncePad);
+            trampGroup.position.set(30, 0, -20);
+            scene.add(trampGroup);
+            trampolineMesh = trampGroup;
+
+            // 6. City SkyScrapers (Highly optimized colorful building structures)
+            const buildingData = [
+                { x: 25, z: 35, w: 10, h: 20, d: 10, color: 0xff3838 },
+                { x: 45, z: 25, w: 12, h: 32, d: 12, color: 0x17c0eb },
+                { x: 50, z: 45, w: 14, h: 25, d: 14, color: 0xffb8b8 },
+                { x: 38, z: 50, w: 10, h: 18, d: 10, color: 0xff9f43 }
+            ];
+
+            buildingData.forEach(b => {
+                const bGeo = new THREE.BoxGeometry(b.w, b.h, b.d);
+                const bMat = new THREE.MeshToonMaterial({ color: b.color });
+                const building = new THREE.Mesh(bGeo, bMat);
+                building.position.set(b.x, b.h/2, b.z);
+                scene.add(building);
+
+                // Draw simple windows using miniature flat yellow squares
+                const winGeo = new THREE.BoxGeometry(0.8, 0.8, 0.1);
+                const winMat = new THREE.MeshBasicMaterial({ color: 0xfff200 });
+                for(let y = 3; y < b.h - 3; y += 4) {
+                    for(let offset = -b.w/3; offset <= b.w/3; offset += b.w/3) {
+                        if (offset === 0) continue;
+                        const w1 = new THREE.Mesh(winGeo, winMat);
+                        w1.position.set(b.x + offset, y, b.z + b.d/2 + 0.06);
+                        scene.add(w1);
+                    }
+                }
+            });
+
+            // 7. Apple Trees (Dash-triggered dropping apple logic)
+            const treePositions = [
+                { x: 10, z: 22 },
+                { x: 18, z: 12 },
+                { x: 25, z: 8 },
+                { x: 5, z: 32 }
+            ];
+
+            treePositions.forEach(p => {
+                const treeGroup = new THREE.Group();
+                const trunk = new THREE.Mesh(
+                    new THREE.CylinderGeometry(0.4, 0.6, 4, 8),
+                    new THREE.MeshToonMaterial({ color: 0x8b542b })
+                );
+                trunk.position.y = 2;
+                treeGroup.add(trunk);
+
+                const leaves = new THREE.Mesh(
+                    new THREE.SphereGeometry(2, 8, 8),
+                    new THREE.MeshToonMaterial({ color: 0x2ecc71 })
+                );
+                leaves.position.y = 4.5;
+                treeGroup.add(leaves);
+
+                // Add apples visible in trees
+                const app1 = new THREE.Mesh(new THREE.SphereGeometry(0.2, 6, 6), new THREE.MeshToonMaterial({ color: 0xff0000 }));
+                app1.position.set(0.8, 4.0, 1.2);
+                treeGroup.add(app1);
+                const app2 = app1.clone(); app2.position.set(-1.2, 4.3, -0.6); treeGroup.add(app2);
+                const app3 = app1.clone(); app3.position.set(0.5, 4.6, -1.1); treeGroup.add(app3);
+
+                treeGroup.position.set(p.x, 0, p.z);
+                scene.add(treeGroup);
+                treeMeshes.push(treeGroup);
+            });
+
+            // 8. Market Stand Vendor NPCs with direct look-at behavior
+            const npcData = [
+                { x: -18, z: 12, name: "Giyim Satıcısı", icon: "👒", items: ["hat", "anime_hair", "headphones"] },
+                { x: -14, z: -18, name: "Aksesuar Satıcısı", icon: "🎒", items: ["cape", "wings", "sword"] }
+            ];
+
+            npcData.forEach(npc => {
+                const standGroup = new THREE.Group();
+                // Table
+                const table = new THREE.Mesh(new THREE.BoxGeometry(3, 1.2, 1.5), new THREE.MeshToonMaterial({ color: 0xe67e22 }));
+                table.position.set(npc.x, 0.6, npc.z);
+                scene.add(table);
+
+                // NPC Character model behind table
+                const vendor = createCharacterMesh();
+                vendor.position.set(npc.x, 1.2, npc.z - 0.9);
+                vendor.rotation.y = Math.PI; // Looking forward initially
+                scene.add(vendor);
+                vendorMeshes.push({ mesh: vendor, data: npc });
+
+                // Floating indicator icon above vendor's head
+                const signGeo = new THREE.BoxGeometry(1.2, 0.5, 0.1);
+                const signMat = new THREE.MeshBasicMaterial({ color: 0xfff200 });
+                const sign = new THREE.Mesh(signGeo, signMat);
+                sign.position.set(npc.x, 4.2, npc.z);
+                scene.add(sign);
+            });
+
+            // Finally, create the customized User Player character in the center
+            playerObj = createCharacterMesh();
+            playerObj.position.set(10, 0, -10);
+            scene.add(playerObj);
+
+            // Force initial customization update
+            updateColors();
+        }
+
+        // Floating Gold Coin generator
+        function createFloatingCoin(x, y, z) {
+            const coinGeo = new THREE.CylinderGeometry(0.4, 0.4, 0.1, 8);
+            const coinMat = new THREE.MeshToonMaterial({ color: 0xffd700, emissive: 0xffaa00, emissiveIntensity: 0.3 });
+            const coin = new THREE.Mesh(coinGeo, coinMat);
+            coin.rotation.x = Math.PI / 2;
+            coin.position.set(x, y, z);
+            scene.add(coin);
+            coinsList.push(coin);
+        }
+
+        // Setup Joystick and screen rotation mouse/touch inputs
+        function setupInputControls() {
+            const container = document.getElementById('canvas-container');
+            const joyZone = document.getElementById('joystick-zone');
+            const joyHandle = document.getElementById('joystick-handle');
+
+            // Virtual Joystick calculations
+            joyZone.addEventListener('touchstart', (e) => {
+                const touch = e.touches[0];
+                const rect = joyZone.getBoundingClientRect();
+                touchStartPos = {
+                    x: rect.left + rect.width / 2,
+                    y: rect.top + rect.height / 2
+                };
+                joystickActive = true;
+                e.stopPropagation();
+            });
+
+            window.addEventListener('touchmove', (e) => {
+                if (!joystickActive) return;
+                
+                // Find touch corresponding to left joystick
+                let touch = null;
+                for (let i = 0; i < e.touches.length; i++) {
+                    if (e.touches[i].clientX < window.innerWidth / 2) {
+                        touch = e.touches[i];
+                        break;
+                    }
+                }
+                if (!touch) return;
+
+                const deltaX = touch.clientX - touchStartPos.x;
+                const deltaY = touch.clientY - touchStartPos.y;
+                const distance = Math.sqrt(deltaX*deltaX + deltaY*deltaY);
+                const maxDistance = 50;
+
+                const angle = Math.atan2(deltaY, deltaX);
+                const moveDist = Math.min(distance, maxDistance);
+
+                const handleX = Math.cos(angle) * moveDist;
+                const handleY = Math.sin(angle) * moveDist;
+
+                joyHandle.style.transform = `translate(${handleX}px, ${handleY}px)`;
+
+                // Map joystick position to 3D movement directions relative to camera viewpoint
+                moveDirection.set(
+                    Math.cos(angle) * (moveDist / maxDistance),
+                    0,
+                    Math.sin(angle) * (moveDist / maxDistance)
+                );
+            }, { passive: true });
+
+            window.addEventListener('touchend', (e) => {
+                // If there are no touches left on left side, reset joystick
+                let leftTouchExists = false;
+                for (let i = 0; i < e.touches.length; i++) {
+                    if (e.touches[i].clientX < window.innerWidth / 2) {
+                        leftTouchExists = true;
+                    }
+                }
+                if (!leftTouchExists) {
+                    joystickActive = false;
+                    joyHandle.style.transform = 'translate(0px, 0px)';
+                    moveDirection.set(0, 0, 0);
+                }
+            });
+
+            // Keyboard fallbacks for desktop compatibility
+            window.addEventListener('keydown', (e) => {
+                if (e.key === 'w' || e.key === 'ArrowUp') keys.w = true;
+                if (e.key === 's' || e.key === 'ArrowDown') keys.s = true;
+                if (e.key === 'a' || e.key === 'ArrowLeft') keys.a = true;
+                if (e.key === 'd' || e.key === 'ArrowRight') keys.d = true;
+                if (e.key === ' ') handlePlayerJump();
+            });
+
+            window.addEventListener('keyup', (e) => {
+                if (e.key === 'w' || e.key === 'ArrowUp') keys.w = false;
+                if (e.key === 's' || e.key === 'ArrowDown') keys.s = false;
+                if (e.key === 'a' || e.key === 'ArrowLeft') keys.a = false;
+                if (e.key === 'd' || e.key === 'ArrowRight') keys.d = false;
+            });
+
+            // Screen swipe / dragging for camera rotations (right half of screen)
+            container.addEventListener('touchstart', (e) => {
+                let touch = e.touches[0];
+                if (touch.clientX > window.innerWidth / 2) {
+                    touchRotateStart = { x: touch.clientX, y: touch.clientY };
+                }
+            });
+
+            container.addEventListener('touchmove', (e) => {
+                if (!touchRotateStart) return;
+                let touch = null;
+                for (let i = 0; i < e.touches.length; i++) {
+                    if (e.touches[i].clientX > window.innerWidth / 2) {
+                        touch = e.touches[i];
+                        break;
+                    }
+                }
+                if (!touch) return;
+
+                const diffX = touch.clientX - touchRotateStart.x;
+                const diffY = touch.clientY - touchRotateStart.y;
+
+                cameraAngleX -= diffX * 0.007;
+                cameraAngleY = Math.max(0.05, Math.min(1.2, cameraAngleY + diffY * 0.005));
+
+                touchRotateStart = { x: touch.clientX, y: touch.clientY };
+            }, { passive: true });
+
+            container.addEventListener('touchend', (e) => {
+                let rightTouchExists = false;
+                for (let i = 0; i < e.touches.length; i++) {
+                    if (e.touches[i].clientX > window.innerWidth / 2) {
+                        rightTouchExists = true;
+                    }
+                }
+                if (!rightTouchExists) {
+                    touchRotateStart = null;
+                }
+            });
+
+            // Mouse equivalents for desktop
+            let isMouseDown = false;
+            container.addEventListener('mousedown', (e) => {
+                isMouseDown = true;
+                touchRotateStart = { x: e.clientX, y: e.clientY };
+            });
+            window.addEventListener('mousemove', (e) => {
+                if(!isMouseDown) return;
+                const diffX = e.clientX - touchRotateStart.x;
+                const diffY = e.clientY - touchRotateStart.y;
+                cameraAngleX -= diffX * 0.007;
+                cameraAngleY = Math.max(0.05, Math.min(1.2, cameraAngleY + diffY * 0.005));
+                touchRotateStart = { x: e.clientX, y: e.clientY };
+            });
+            window.addEventListener('mouseup', () => { isMouseDown = false; });
+
+            // Click-to-interact with NPCs/Vendors
+            container.addEventListener('click', (e) => {
+                // Simple Raycast implementation to see if user tapped an NPC or tree
+                const mouse = new THREE.Vector2(
+                    (e.clientX / window.innerWidth) * 2 - 1,
+                    -(e.clientY / window.innerHeight) * 2 + 1
+                );
+                const raycaster = new THREE.Raycaster();
+                raycaster.setFromCamera(mouse, camera);
+
+                // Detect click on vendors
+                vendorMeshes.forEach(vend => {
+                    const intersects = raycaster.intersectObject(vend.mesh, true);
+                    if (intersects.length > 0) {
+                        // Check distance to vendor
+                        let dist = playerObj.position.distanceTo(vend.mesh.position);
+                        if (dist < 8) {
+                            openShopVendor(vend.data);
+                        } else {
+                            showToast("Satıcıya daha çok yaklaşmalısın!");
+                        }
+                    }
+                });
+            });
+        }
+
+        // Jumping mechanic
+        function handlePlayerJump() {
+            if (isGrounded) {
+                playerVel.y = 12;
+                isGrounded = false;
+                playBeep(330, 80);
+            }
+        }
+
+        // Handle physical movement, collisions, and portals
+        function updatePlayerPhysics(delta) {
+            if (!playerObj) return;
+
+            // Combine keyboard keys + Joystick input
+            let moveX = 0;
+            let moveZ = 0;
+
+            if (keys.w) { moveX += Math.sin(cameraAngleX); moveZ += Math.cos(cameraAngleX); }
+            if (keys.s) { moveX -= Math.sin(cameraAngleX); moveZ -= Math.cos(cameraAngleX); }
+            if (keys.a) { moveX -= Math.cos(cameraAngleX); moveZ += Math.sin(cameraAngleX); }
+            if (keys.d) { moveX += Math.cos(cameraAngleX); moveZ -= Math.sin(cameraAngleX); }
+
+            // Apply virtual touch joystick movement
+            if (joystickActive && moveDirection.lengthSq() > 0.01) {
+                // Move relative to camera angle
+                let rotatedJoyX = moveDirection.x * Math.cos(cameraAngleX) + moveDirection.z * Math.sin(cameraAngleX);
+                let rotatedJoyZ = -moveDirection.x * Math.sin(cameraAngleX) + moveDirection.z * Math.cos(cameraAngleX);
+                moveX += rotatedJoyX;
+                moveZ += rotatedJoyZ;
+            }
+
+            // Normalise and apply speed
+            let moveLength = Math.sqrt(moveX*moveX + moveZ*moveZ);
+            if (moveLength > 0.01) {
+                moveX /= moveLength;
+                moveZ /= moveLength;
+
+                let currentSpeed = baseSpeed * speedMultiplier;
+                playerVel.x = moveX * currentSpeed;
+                playerVel.z = moveZ * currentSpeed;
+
+                // Face movement direction smoothly
+                let targetRot = Math.atan2(moveX, moveZ);
+                playerObj.rotation.y = targetRot;
+            } else {
+                playerVel.x = 0;
+                playerVel.z = 0;
+            }
+
+            // Gravity physics
+            playerVel.y -= 25 * delta; // falling force
+
+            // Apply temporary speed if Hoverboard is active
+            if(playerAccessories['hoverboard']) {
+                speedMultiplier = 1.6;
+            } else if(speedMultiplier === 1.6) {
+                speedMultiplier = 1.0;
+            }
+
+            // Move character position coordinates
+            playerObj.position.x += playerVel.x * delta;
+            playerObj.position.z += playerVel.z * delta;
+            playerObj.position.y += playerVel.y * delta;
+
+            // Swimmable water constraint
+            if (playerObj.position.y < -7.3) {
+                playerObj.position.y = -7.3;
+                playerVel.y = 0;
+                isGrounded = true;
+                // Swim mechanics
+                if (moveLength > 0.1) {
+                    playerObj.position.y += Math.sin(clock.getElapsedTime()*8) * 0.08;
+                }
+            }
+
+            // Standard land collision check
+            let distFromCenter = Math.sqrt(playerObj.position.x*playerObj.position.x + playerObj.position.z*playerObj.position.z);
+            if (distFromCenter < 85) {
+                // If player is on or near mainland ground level
+                if (playerObj.position.y < 0.1) {
+                    playerObj.position.y = 0.1;
+                    playerVel.y = Math.max(0, playerVel.y);
+                    isGrounded = true;
+                }
+            } else {
+                // Player fell into ocean waters
+                if(playerObj.position.y < -6.8) {
+                    // swimming state
+                }
+            }
+
+            // Sky Portal teleportation collision check (mor portal)
+            if (skyPortalMesh) {
+                let portalDist = playerObj.position.distanceTo(new THREE.Vector3(0, 3, 0));
+                if (portalDist < 3.8) {
+                    // Portal touch trigger! Send to sky platforms!
+                    playerObj.position.set(0, 62, 0); // High sky coordinates
+                    playerVel.set(0, 4, 0); // small upward glide boost
+                    showToast("☁️ Gökyüzü Portalına dokundun! Havada süzülüyorsun!");
+                    playBeep(880, 400);
+                }
+            }
+
+            // Trampoline (zıplatma) collision check
+            if (trampolineMesh) {
+                let trampDist = playerObj.position.distanceTo(new THREE.Vector3(30, 0.5, -20));
+                if (trampDist < 3.5) {
+                    playerVel.y = 22; // High jump velocity skyrocket!
+                    isGrounded = false;
+                    showToast("🚀 Havaya fırlatıldın!");
+                    playBeep(700, 250);
+                }
+            }
+
+            // Tree collision checks (Dash shake & drop apples)
+            treeMeshes.forEach((tree, idx) => {
+                let treeDist = playerObj.position.distanceTo(new THREE.Vector3(tree.position.x, playerObj.position.y, tree.position.z));
+                if (treeDist < 2.0) {
+                    // Collision force push-back
+                    let pushDir = playerObj.position.clone().sub(tree.position).normalize();
+                    playerObj.position.x += pushDir.x * 0.2;
+                    playerObj.position.z += pushDir.z * 0.2;
+
+                    // Trigger shake and apple drop if moving fast
+                    if (playerVel.lengthSq() > 30) {
+                        shakeTreeAndDropApple(tree, idx);
+                    }
+                }
+            });
+
+            // Collisions with falling/dropped apples to collect them
+            for (let i = appleMeshes.length - 1; i >= 0; i--) {
+                let apple = appleMeshes[i];
+                let dist = playerObj.position.distanceTo(apple.position);
+                if (dist < 1.6) {
+                    // Collect apple!
+                    scene.remove(apple);
+                    appleMeshes.splice(i, 1);
+                    
+                    // Satiety bonus
+                    survivalStats.hunger = Math.min(100, survivalStats.hunger + 25);
+                    coins += 10; // also awards minor gold coins as bonus!
+                    updateUIMetrics();
+                    showToast("🍎 Lezzetli elmayı yedin! Tokluk ve +10 Altın kazandın!");
+                    playBeep(987, 100);
+                }
+            }
+
+            // Gold Coin collection checks
+            for (let i = coinsList.length - 1; i >= 0; i--) {
+                let coin = coinsList[i];
+                let coinDist = playerObj.position.distanceTo(coin.position);
+                if (coinDist < 1.6) {
+                    // Collect!
+                    scene.remove(coin);
+                    coinsList.splice(i, 1);
+                    coins += 15;
+                    updateUIMetrics();
+                    showToast("🪙 +15 Altın Topladın!");
+                    playBeep(1200, 80);
+                }
+            }
+        }
+
+        // Shake tree leaves animation & drop interactive apple
+        let activeShakes = {};
+        function shakeTreeAndDropApple(tree, idx) {
+            if (activeShakes[idx]) return; // already shaking
+            activeShakes[idx] = true;
+
+            // Create beautiful falling physical apple mesh
+            const appleGeo = new THREE.SphereGeometry(0.3, 8, 8);
+            const appleMat = new THREE.MeshToonMaterial({ color: 0xff3300 });
+            const apple = new THREE.Mesh(appleGeo, appleMat);
+            apple.position.set(tree.position.x + (Math.random()*2 - 1), 4.5, tree.position.z + (Math.random()*2 - 1));
+            scene.add(apple);
+            appleMeshes.push(apple);
+
+            // Shaking animation logic
+            let shakeTime = 0;
+            let origX = tree.position.x;
+            let shakeInterval = setInterval(() => {
+                shakeTime += 0.05;
+                tree.position.x = origX + Math.sin(shakeTime * 40) * 0.15;
+                if (shakeTime >= 0.6) {
+                    clearInterval(shakeInterval);
+                    tree.position.x = origX;
+                    activeShakes[idx] = false;
+                }
+            }, 30);
+            playBeep(150, 100);
+        }
+
+        // Animate all dynamic assets in loop
+        function updateDynamicAssets(delta) {
+            // Spin and bounce sky portal ring
+            if (skyPortalMesh) {
+                skyPortalMesh.rotation.z += 1.5 * delta;
+                skyPortalMesh.position.y = 3.2 + Math.sin(clock.getElapsedTime() * 3) * 0.2;
+            }
+
+            // Spin floating coins
+            coinsList.forEach(coin => {
+                coin.rotation.z += 2.0 * delta;
+            });
+
+            // Falling apples physical gravity check
+            appleMeshes.forEach(apple => {
+                if(apple.position.y > 0.3) {
+                    apple.position.y -= 8.0 * delta; // falling speed
+                } else {
+                    apple.position.y = 0.3; // rest on floor
+                }
+            });
+
+            // NPCs look towards the user player dynamically
+            if(playerObj) {
+                vendorMeshes.forEach(vend => {
+                    vend.mesh.lookAt(playerObj.position.x, vend.mesh.position.y, playerObj.position.z);
+                });
+            }
+
+            // Move simulated zombie enemies towards player in survival night mode
+            if(gameMode === 'survival' && zombiesList.length > 0) {
+                zombiesList.forEach(zombie => {
+                    let dir = playerObj.position.clone().sub(zombie.position);
+                    dir.y = 0; // lock height
+                    let dist = dir.length();
+                    
+                    if(dist > 0.5) {
+                        dir.normalize();
+                        zombie.position.addScaledVector(dir, 3.5 * delta); // run speed
+                        zombie.lookAt(playerObj.position.x, zombie.position.y, playerObj.position.z);
+
+                        // Zombie attack damage check
+                        if(dist < 1.5) {
+                            survivalStats.health = Math.max(0, survivalStats.health - 20 * delta);
+                            updateUIMetrics();
+                            if(survivalStats.health <= 0) {
+                                triggerPlayerRespawn();
+                            }
+                        }
+                    }
+                });
+            }
+        }
+
+        // Survival mode stat drainage
+        function updateSurvivalDepletion(delta) {
+            // Slowly deplete hunger & thirst
+            survivalStats.hunger = Math.max(0, survivalStats.hunger - 0.5 * delta);
+            survivalStats.thirst = Math.max(0, survivalStats.thirst - 0.8 * delta);
+
+            // Deplete health if starving or extremely dehydrated
+            if(survivalStats.hunger <= 0 || survivalStats.thirst <= 0) {
+                survivalStats.health = Math.max(0, survivalStats.health - 4.0 * delta);
+            }
+
+            // Dynamic night/day zombie spawning loop
+            let cycle = Math.sin(clock.getElapsedTime() * 0.05); // slow osc
+            if(cycle < -0.3) {
+                // Night time! Change sky coloring
+                renderer.setClearColor(0x050510);
+                scene.fog.color.setHex(0x050510);
+                
+                // Spawn zombies if not already spawned
+                if(zombiesList.length === 0) {
+                    spawnZombieWaves();
+                    showToast("🧟 Gece Oldu! Zombiler Şehirde Belirdi! Hayatta Kal!");
+                }
+            } else {
+                // Day time coloring
+                renderer.setClearColor(0x1a1a2e);
+                scene.fog.color.setHex(0x1a1a2e);
+
+                // Safely clear active zombie models
+                if(zombiesList.length > 0) {
+                    zombiesList.forEach(z => scene.remove(z));
+                    zombiesList = [];
+                }
+            }
+
+            updateUIMetrics();
+        }
+
+        // Spawn night zombies around the city square
+        function spawnZombieWaves() {
+            const zombieMat = new THREE.MeshToonMaterial({ color: 0x27ae60 }); // rotten green skin
+            const zombieShirt = new THREE.MeshToonMaterial({ color: 0x7f8c8d });
+
+            for(let i=0; i<3; i++) {
+                const zGroup = new THREE.Group();
+                const b = new THREE.Mesh(new THREE.BoxGeometry(0.8, 1.0, 0.5), zombieShirt);
+                b.position.y = 1.0;
+                const h = new THREE.Mesh(new THREE.BoxGeometry(0.8, 0.8, 0.8), zombieMat);
+                h.position.y = 1.9;
+                
+                // Red glowing eyes
+                const eyeGeo = new THREE.BoxGeometry(0.1, 0.1, 0.05);
+                const eyeMat = new THREE.MeshBasicMaterial({ color: 0xff0000 });
+                const le = new THREE.Mesh(eyeGeo, eyeMat); le.position.set(-0.2, 1.95, 0.41);
+                const re = le.clone(); re.position.x = 0.2;
+                
+                zGroup.add(b, h, le, re);
+
+                // Zombie spawned position around city center
+                zGroup.position.set(25 + (Math.random()*15 - 7), 0.1, 25 + (Math.random()*15 - 7));
+                scene.add(zGroup);
+                zombiesList.push(zGroup);
+            }
+        }
+
+        // Player respawn flow when dying
+        function triggerPlayerRespawn() {
+            survivalStats.health = 100;
+            survivalStats.hunger = 100;
+            survivalStats.thirst = 100;
+            playerObj.position.set(10, 0, -10); // safe base coordinate
+            updateUIMetrics();
+            showToast("💀 Öldün! Güvenli Üsse Işınlandın!");
+            playBeep(100, 500);
+        }
+
+        // Update top-left and top-right HUD metrics
+        function updateUIMetrics() {
+            document.getElementById('coins-count').innerText = coins;
+            document.getElementById('gems-count').innerText = gems;
+            
+            document.getElementById('health-fill').style.width = `${survivalStats.health}%`;
+            document.getElementById('hunger-fill').style.width = `${survivalStats.hunger}%`;
+            document.getElementById('thirst-fill').style.width = `${survivalStats.thirst}%`;
+        }
+
+        // Emote masked triggers
+        let emoteActive = false;
+        function toggleEmotePopup() {
+            let p = document.getElementById('emote-popup');
+            p.style.display = p.style.display === 'flex' ? 'none' : 'flex';
+        }
+
+        function triggerEmote(emoteType) {
+            if(!playerObj || emoteActive) return;
+            emoteActive = true;
+            toggleEmotePopup();
+
+            showToast(`🕺 Emote Tetiklendi: ${emoteType.toUpperCase()}`);
+
+            let origY = playerObj.position.y;
+            let time = 0;
+            let emoteInterval = setInterval(() => {
+                time += 0.05;
+                if(emoteType === 'dance') {
+                    // Twist and bounce
+                    playerObj.rotation.y += 0.2;
+                    playerObj.position.y = origY + Math.abs(Math.sin(time*10)) * 0.8;
+                } else if(emoteType === 'wave') {
+                    // Tilt left/right
+                    playerObj.rotation.z = Math.sin(time*15) * 0.15;
+                } else if(emoteType === 'backflip') {
+                    // Full loop rotation
+                    playerObj.rotation.x += 0.3;
+                    playerObj.position.y = origY + Math.sin((time/1.5)*Math.PI) * 2.5;
+                } else if(emoteType === 'robot') {
+                    // Jerky movements
+                    playerObj.position.x += Math.sin(time*50)*0.05;
+                }
+
+                if(time >= 1.5) {
+                    clearInterval(emoteInterval);
+                    playerObj.rotation.set(0, playerObj.rotation.y, 0); // reset rotation plane
+                    playerObj.position.y = origY;
+                    emoteActive = false;
+                }
+            }, 30);
+            playBeep(440 + (Math.random()*400), 200);
+        }
+
+        // Toggle MertoPhone sidebar UI
+        function togglePhone() {
+            let phone = document.getElementById('mertophone-container');
+            phone.classList.toggle('active');
+            playBeep(580, 100);
+        }
+
+        // Open specific App inside Phone screen
+        function openApp(appId) {
+            document.getElementById('phone-home').style.display = 'none';
+            document.getElementById(`app-${appId}`).classList.add('active');
+            playBeep(650, 100);
+        }
+
+        // Return to home phone screen
+        function closeApp() {
+            const windows = document.querySelectorAll('.phone-app-window');
+            windows.forEach(w => w.classList.remove('active'));
+            document.getElementById('phone-home').style.display = 'block';
+            playBeep(520, 80);
+        }
+
+        // APP LOGIC: MertoGram Social Network Feed renderer
+        function renderMertoGramFeed() {
+            const feed = document.getElementById('mgram-feed-container');
+            feed.innerHTML = '';
+
+            mertoGramPosts.forEach((post, idx) => {
+                const card = document.createElement('div');
+                card.className = 'mertogram-post';
+                card.innerHTML = `
+                    <div class="post-header">
+                        <span>@${post.user}</span>
+                        <span>Yeni</span>
+                    </div>
+                    <img class="post-image-placeholder" src="${post.img}" alt="Mertogram visual">
+                    <div class="post-caption">${post.caption}</div>
+                    <div class="post-actions">
+                        <div class="post-action-btn" onclick="likePost(${idx})">❤️ <span id="likes-${idx}">${post.likes}</span></div>
+                        <div class="post-action-btn">💬 <span id="comments-${idx}">${post.comments.length}</span></div>
+                    </div>
+                `;
+                feed.appendChild(card);
+            });
+        }
+
+        // Like simulated post in feed
+        function likePost(idx) {
+            mertoGramPosts[idx].likes++;
+            document.getElementById(`likes-${idx}`).innerText = mertoGramPosts[idx].likes;
+            followers += Math.floor(Math.random() * 20) + 15; // followers gain
+            
+            updateFollowerCount();
+            playBeep(880, 80);
+        }
+
+        // Write and publish screenshot photo in MertoGram feed
+        function takePhotoAndPost() {
+            let cap = document.getElementById('photo-caption').value.trim();
+            if(!cap) {
+                showToast("Lütfen fotoğraf açıklaması yazın!");
+                return;
+            }
+
+            // Create canvas snapshot of Three.js frame
+            let dataUrl = renderer.domElement.toDataURL("image/jpeg");
+
+            // Add newly created post to feed
+            mertoGramPosts.unshift({
+                user: "OyuncuMerto",
+                img: dataUrl,
+                caption: cap,
+                likes: 0,
+                comments: []
+            });
+
+            // Clean caption field
+            document.getElementById('photo-caption').value = '';
+            
+            // Re-render feed
+            renderMertoGramFeed();
+
+            // Gain followers
+            followers += 220;
+            updateFollowerCount();
+
+            showToast("📸 Fotoğraf MertoGram'da Paylaşıldı!");
+            playBeep(1000, 300);
+        }
+
+        // Upload custom image/media from device gallery (Simulated with a beautiful library choice)
+        function uploadFromGallery() {
+            // Trigger follower milestone boost on file upload interaction
+            followers += 340;
+            updateFollowerCount();
+
+            // Insert simulated video/image post
+            mertoGramPosts.unshift({
+                user: "OyuncuMerto",
+                img: "https://images.unsplash.com/photo-1511512578047-dfb367046420?auto=format&fit=crop&w=400&q=80",
+                caption: "Galerimden yüklediğim harika bir Shorts klibi! 🍿🎬",
+                likes: 120,
+                comments: ["Harika!", "Muhteşem görünüyor."]
+            });
+
+            renderMertoGramFeed();
+            showToast("📁 Cihaz galerisinden video başarıyla yüklendi!");
+            playBeep(900, 150);
+        }
+
+        // Milestone checking for MertoC Badge & Awards
+        function updateFollowerCount() {
+            document.getElementById('mgram-followers').innerText = followers;
+
+            // Trigger MertoC Reward badge
+            if(followers >= 1500 && !reachedMertoC) {
+                reachedMertoC = true;
+                document.getElementById('mcert-badge').style.display = 'inline';
+                
+                // Reward player
+                coins += 1000;
+                gems += 100;
+                updateUIMetrics();
+
+                showToast("🎖️ TEBRİKLER! 1500 Takipçiye Ulaştın ve MertoC Rozeti İle Maaş Kazandın!");
+                playBeep(2000, 600);
+            }
+        }
+
+        // APP LOGIC: Davet Linki copying
+        function copyInviteLink() {
+            let dummyLink = window.location.href + "#room=PKXD_" + Math.floor(Math.random()*9000 + 1000);
+            
+            // Use Clipboard API with fallback
+            if (navigator.clipboard) {
+                navigator.clipboard.writeText(dummyLink).then(() => {
+                    showToast("🔗 Oda Davet Linki Kopyalandı!");
+                }).catch(() => {
+                    showToast("Kopyalama başarısız, lütfen manuel yapın!");
+                });
+            } else {
+                showToast("🔗 Kopyalandı! (Simüle)");
+            }
+            playBeep(800, 150);
+        }
+
+        // APP LOGIC: City Market purchases
+        function buyMarketItem(item, price, currencyType) {
+            if(currencyType === 'coin' && coins >= price) {
+                coins -= price;
+            } else if(currencyType === 'gem' && gems >= price) {
+                gems -= price;
+            } else {
+                showToast("Yetersiz bakiye!", true);
+                playBeep(150, 300);
+                return;
+            }
+
+            // Apply item upgrade
+            if(item === 'speed') {
+                baseSpeed = 14;
+                document.getElementById('buy-speed').innerText = "Alındı";
+                document.getElementById('buy-speed').disabled = true;
+            } else if(item === 'hoverboard') {
+                playerAccessories['hoverboard'] = true;
+                meshAccRefs['hoverboard'].visible = true;
+                document.getElementById('buy-hoverboard').innerText = "Aktif";
+                document.getElementById('buy-hoverboard').disabled = true;
+            } else if(item === 'crown') {
+                playerAccessories['crown'] = true;
+                meshAccRefs['crown'].visible = true;
+                document.getElementById('buy-crown').innerText = "Aktif";
+                document.getElementById('buy-crown').disabled = true;
+            }
+
+            updateUIMetrics();
+            showToast("🛍️ Satın Alma Başarılı! Öğeniz Karakterinize Tanımlandı.");
+            playBeep(1100, 200);
+        }
+
+        // APP LOGIC: Odadaki Arkadaşlar list (Real friends simulation without fake bots)
+        function addNewFriend() {
+            let name = document.getElementById('friend-name-input').value.trim();
+            if(!name) {
+                showToast("Lütfen bir arkadaş adı yazın!");
+                return;
+            }
+
+            // Clean input
+            document.getElementById('friend-name-input').value = '';
+
+            // Generate full real 3D model for the friend in the scene
+            const friendMesh = createCharacterMesh();
+            // Randomly position close to the portal center
+            friendMesh.position.set(Math.random()*20 - 10, 0.1, Math.random()*20 - 10);
+            scene.add(friendMesh);
+
+            // Add floating name banner text
+            const bannerGeo = new THREE.BoxGeometry(1.5, 0.3, 0.1);
+            const bannerMat = new THREE.MeshBasicMaterial({ color: 0xff00ff });
+            const banner = new THREE.Mesh(bannerGeo, bannerMat);
+            banner.position.y = 2.6;
+            friendMesh.add(banner);
+
+            friendsList.push({
+                name: name,
+                mesh: friendMesh
+            });
+
+            // Re-render friends sidebar list inside phone
+            renderFriendsList();
+
+            showToast(`👥 ${name} isimli arkadaşınız odaya katıldı!`);
+            playBeep(850, 150);
+        }
+
+        function renderFriendsList() {
+            const list = document.getElementById('friends-list-container');
+            list.innerHTML = '';
+
+            friendsList.forEach((friend, idx) => {
+                const item = document.createElement('div');
+                item.className = 'player-list-item';
+                item.innerHTML = `
+                    <span>🟢 ${friend.name}</span>
+                    <button class="teleport-btn" onclick="teleportToFriend(${idx})">🚀 Git</button>
+                `;
+                list.appendChild(item);
+            });
+        }
+
+        // Teleport user player right to friend coordinates
+        function teleportToFriend(idx) {
+            let targetFriend = friendsList[idx];
+            if(targetFriend && playerObj) {
+                // Set player coordinates
+                playerObj.position.copy(targetFriend.mesh.position);
+                playerObj.position.y += 0.5; // slight height offset
+                
+                showToast(`🚀 ${targetFriend.name} yanına ışınlandın!`);
+                playBeep(1200, 200);
+                togglePhone(); // close phone
+            }
+        }
+
+        // OPEN INDIVIDUAL SHOP DIALOG FOR SHOPKEEPER STANDS
+        function openShopVendor(data) {
+            document.getElementById('shop-vendor-title').innerText = `${data.name} Standı 🛒`;
+            
+            const container = document.getElementById('shop-items-container');
+            container.innerHTML = '';
+
+            data.items.forEach(item => {
+                let formattedName = item.replace('_', ' ').toUpperCase();
+                container.innerHTML += `
+                    <div class="market-item-card">
+                        <div>
+                            <div class="market-item-title">${formattedName} Accessory</div>
+                            <div class="market-item-desc">Gardırobunuza eklemek için satın alın.</div>
+                        </div>
+                        <button class="market-buy-btn" onclick="buyVendorItem('${item}', 50)">50 🪙</button>
+                    </div>
+                `;
+            });
+
+            document.getElementById('shop-dialog').style.display = 'flex';
+            playBeep(700, 100);
+        }
+
+        function closeShopVendor() {
+            document.getElementById('shop-dialog').style.display = 'none';
+            playBeep(450, 80);
+        }
+
+        function buyVendorItem(item, price) {
+            if (coins >= price) {
+                coins -= price;
+                updateUIMetrics();
+                showToast(`👒 ${item.toUpperCase()} Gardırobunuza Eklendi!`);
+                
+                // Toggle wardrobe item automatically!
+                if(item === 'anime_hair') {
+                    toggleAccessory('hair');
+                } else {
+                    toggleAccessory(item);
+                }
+
+                closeShopVendor();
+            } else {
+                showToast("Yetersiz altın bakiye!", true);
+                playBeep(150, 200);
+            }
+        }
+    </script>
+</body>
+</html>
